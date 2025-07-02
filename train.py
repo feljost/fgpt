@@ -66,6 +66,13 @@ for i in range(100_000):
     if i % 200 == 0:
         generated_tokens, decoded_output = model_inference(model=model)
         print(f"Generated output: {decoded_output}")
+        # Save generated output to a separate JSONL file
+        sample = {
+            "step": i,
+            "decoded_output": decoded_output,
+        }
+        with open(f"sample_outputs_{now_str}.jsonl", "a") as f:
+            f.write(json.dumps(sample) + "\n")
 
 print("Training complete.")
 torch.save(model.state_dict(), f"model_weights_{now_str}.pth")
