@@ -1,5 +1,6 @@
 import tiktoken
 import torch
+from torch.nn import functional as F
 
 def model_inference(model, enc = tiktoken.get_encoding("gpt2")):
     # Inference

@@ -23,18 +23,15 @@ model.to("cuda")  # move model to GPU
 torch.set_float32_matmul_precision("medium")
 dataloader = DataLoader(B, T, process_rank=0, split="train")  # create a dataloader
 
-
-model = GPT(GPTConfig())
-model.to("cuda")
 model = torch.compile(model)
 optimizer = torch.optim.AdamW(
     model.parameters(), lr=1e-4, betas=(0.9, 0.95), eps=1e-8
 )  # optimizer
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10000)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100_000)
 now_str = datetime.now().strftime("%Y%m%d_%H%M")
 
 
-for i in range(10_001):
+for i in range(100_000):
     t0 = time.time()
     x, y = dataloader.next_batch()
     x, y = x.to("cuda"), y.to("cuda")
@@ -51,9 +48,9 @@ for i in range(10_001):
     torch.cuda.synchronize()
     t1 = time.time()
     tokens_per_second = B * T / (t1 - t0)
-    if i % 1 == 0:
+    if i % 5 == 0:
         print(
-            f"Step: {i} | Loss: {loss.item():.4f} | norm {norm:.4f} | tokens/sec: {tokens_per_second:.2f} | lr {optimizer.param_groups[0]['lr']}"
+            f"Step: {i} | Loss: {loss.item():.4f} | norm {norm:.4f} | tokens/sec: {tokens_per_second:.2f} | time: {t1-t0:.3f} | lr {optimizer.param_groups[0]['lr']}"
         )
     if i % 10 == 0:
         # Save metrics to a JSON file
@@ -69,3 +66,6 @@ for i in range(10_001):
     if i % 200 == 0:
         generated_tokens, decoded_output = model_inference(model=model)
         print(f"Generated output: {decoded_output}")
+
+print("Training complete.")
+torch.save(model.state_dict(), f"model_weights_{now_str}.pth")
