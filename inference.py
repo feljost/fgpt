@@ -25,6 +25,6 @@ def model_inference(model, enc = tiktoken.get_encoding("gpt2")):
         )  # sample from the distribution
         x = torch.cat((x, next_token), dim=1)  # append the new token to the sequence
     
-    decoded_output = enc.decode([token for token in x[0].tolist() if token <= 5027])
+    decoded_output = enc.decode([token for token in x[0].tolist() if token <= 50257])
     
     return x, " ".join(decoded_output.split())  # decode the output
