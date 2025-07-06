@@ -16,7 +16,6 @@ from data import DataLoader
 from inference import model_inference
 
 now_str = datetime.now().strftime("%Y%m%d_%H%M")
-now_str = "20250706_1423"
 
 def train(
     num_steps,
@@ -81,7 +80,6 @@ def train(
             }
             torch.save(checkpoint, f"fgpt/checkpoint_{now_str}_step_{i}.pth")
             print(f"Model weights saved at step {i}.")
-            
 
     print("Training complete.")
     torch.save(model._orig_mod.state_dict(), f"fgpt/model_weights_{now_str}.pth")
