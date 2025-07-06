@@ -16,7 +16,7 @@ from data import DataLoader
 from inference import model_inference
 
 now_str = datetime.now().strftime("%Y%m%d_%H%M")
-
+now_str = "20250706_1423"
 
 def train(
     num_steps,
@@ -28,7 +28,7 @@ def train(
 
     print(f"Starting training for {num_steps} steps...")
 
-    for i in range(num_steps):
+    for i in range(52_030, num_steps):
         t0 = time.time()
         x, y, shard_index = dataloader.next_batch()
         x, y = x.to("cuda"), y.to("cuda")
@@ -71,33 +71,50 @@ def train(
             }
             with open(f"fgpt/sample_outputs_{now_str}.jsonl", "a") as f:
                 f.write(json.dumps(sample) + "\n")
+        if i % 1000 == 0 and i > 0:
+            # Save model weights every 1000 steps
+            checkpoint = {
+                'model_state_dict': model._orig_mod.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'step': i,
+                'loss': loss.item()
+            }
+            torch.save(checkpoint, f"fgpt/checkpoint_{now_str}_step_{i}.pth")
+            print(f"Model weights saved at step {i}.")
+            
 
     print("Training complete.")
-    torch.save(model.state_dict(), f"fgpt/model_weights_{now_str}.pth")
+    torch.save(model._orig_mod.state_dict(), f"fgpt/model_weights_{now_str}.pth")
 
 
 if __name__ == "__main__":
   
-    prev_model_weights = "fgpt/model_weights_20231030_1234.pth"
-    load_weights = False
-    if load_weights:
-        print(f"Loading model weights from {prev_model_weights}")
-        state_dict = torch.load(prev_model_weights, map_location="cuda")
-        model = GPT(GPTConfig())
-        model.load_state_dict(state_dict)
-    else:
-        model = GPT(GPTConfig())
+    model = GPT(GPTConfig())
+    model.to("cuda") 
     
-    model.to("cuda")
+    prev_model_weights = "fgpt/checkpoint_20250706_1423_step_54262.pth"
+    load_weights = True
+    
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr= 1e-4,
+        betas=(0.9, 0.95),
+        eps=1e-8
+    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50_000)
+    
+    if load_weights:
+        checkpoint = torch.load(prev_model_weights, weights_only=False, map_location="cuda")
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
     torch.set_float32_matmul_precision("medium")
-    dataloader = DataLoader(B, T, split="train")  # create a dataloader
-
+    dataloader = DataLoader(B, T, split="train", shard_index = 17)
+    
     model = torch.compile(model)
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=1e-4, betas=(0.9, 0.95), eps=1e-8
-    )  # optimizer
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100_000)
+   
     try:
         train(
             num_steps=100_000,
@@ -108,4 +125,5 @@ if __name__ == "__main__":
         )
     except Exception as e:
         print(f"An error occurred during training: {e}")
-        torch.save(model.state_dict(), f"fgpt/model_weights_{now_str}_error.pth")
+        with open(f"fgpt/error_{now_str}.txt", "a") as f:
+            f.write(f"{datetime.now().isoformat()} - {str(e)}\n")

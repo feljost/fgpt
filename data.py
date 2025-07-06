@@ -12,7 +12,7 @@ def load_tokens(file_path):
 
 
 class DataLoader:
-    def __init__(self, B, T, split='train'):
+    def __init__(self, B, T, split='train', shard_index=0):
         # Note: does not work for multi-gpu training
         self.B = B
         self.T = T
@@ -23,7 +23,8 @@ class DataLoader:
         shards = [s for s in shards if s.startswith(f"edufineweb_{split}")]
         self.shards = shards
         
-        self.current_shard_index = 0
+        self.current_shard_index = shard_index
+        assert self.current_shard_index < len(self.shards), "shard_index out of range"
         self.tokens = load_tokens(os.path.join(data_root, self.shards[self.current_shard_index]))
         self.current_position = self.B * self.T
         self.current_position = 0 
