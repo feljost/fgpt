@@ -12,10 +12,10 @@ def load_tokens(file_path):
 
 
 class DataLoader:
-    def __init__(self, B, T, process_rank = 0, split='train'):
+    def __init__(self, B, T, split='train'):
+        # Note: does not work for multi-gpu training
         self.B = B
         self.T = T
-        self.process_rank = process_rank
         assert split in ['train', 'val'], "split must be either 'train' or 'val'"
 
         data_root = "fgpt/edu_fineweb10B"
@@ -25,7 +25,7 @@ class DataLoader:
         
         self.current_shard_index = 0
         self.tokens = load_tokens(os.path.join(data_root, self.shards[self.current_shard_index]))
-        self.current_position = self.B * self.T * self.process_rank  # start at a different position for each process
+        self.current_position = self.B * self.T
         self.current_position = 0 
 
     def next_batch(self):
@@ -35,9 +35,9 @@ class DataLoader:
         y = buf[1:].view(B, T)  # labels
         self.current_position += B * T
         if self.current_position + (B * T + 1) > len(self.tokens):
-            self.current_position = B * T * self.process_rank  # reset to the start of the next shard
+            self.current_position = B * T
             self.current_shard_index += 1
             if self.current_shard_index >= len(self.shards):
                 self.current_shard_index = 0
         
-        return x, y
+        return x, y, self.current_shard_index
