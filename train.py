@@ -74,24 +74,23 @@ def train(
             with open(f"fgpt/sample_outputs_{now_str}.jsonl", "a") as f:
                 f.write(json.dumps(sample) + "\n")
         
-        if i % 1_000 == 0:
+        if i % 5_000 == 0:
             
             # evaluate on hellaswag
             print("Running Hellaswag eval")
             num_correct_norm = 0
             num_total = 0
-            for i, example in enumerate(iterate_examples("val")):
-            
+            for example in iterate_examples("val"):
                 _, tokens, mask, label = render_example(example)
                 tokens = tokens.to("cuda")
                 mask = mask.to("cuda")
                 # get the logits
                 with torch.no_grad():
                     with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                        logits, loss = model(tokens)
+                        logits, _ = model(tokens)
                     pred_norm = get_most_likely_row(tokens, mask, logits)
                 num_total += 1
-                num_correct_norm += int(pred_norm == label)
+                num_correct_norm += int(pre d_norm == label)
             acc_norm = num_correct_norm / num_total
             print(f"HellaSwag accuracy: {acc_norm:.4f}")
             metrics = {"step": i, "hellaswag_acc": acc_norm}
