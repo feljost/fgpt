@@ -2,10 +2,10 @@ import tiktoken
 import torch
 from torch.nn import functional as F
 
-def model_inference(model, enc = tiktoken.get_encoding("gpt2")):
+def model_inference(model, enc = tiktoken.get_encoding("gpt2"), prompt = "Hello"):
     # Inference
     max_length = 50
-    tokens = enc.encode("Hello")  # encode a prompt
+    tokens = enc.encode(prompt)  # encode a prompt
     # add batch dimension and move to GPU
     tokens = torch.tensor(tokens, dtype=torch.long, device="cuda").unsqueeze(0)
     x = tokens.to("cuda")  # move to GPU
