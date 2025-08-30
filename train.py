@@ -14,8 +14,12 @@ from model import GPTConfig
 from model import B, T
 from data import DataLoader
 from inference import model_inference
+from hellaswag import iterate_examples
+from hellaswag import render_example
+from hellaswag import get_most_likely_row
 
 now_str = datetime.now().strftime("%Y%m%d_%H%M")
+# now_str = "20250830_1615"
 
 def train(
     num_steps,
@@ -69,8 +73,33 @@ def train(
             }
             with open(f"fgpt/sample_outputs_{now_str}.jsonl", "a") as f:
                 f.write(json.dumps(sample) + "\n")
+        
+        if i % 1_000 == 0:
+            
+            # evaluate on hellaswag
+            print("Running Hellaswag eval")
+            num_correct_norm = 0
+            num_total = 0
+            for i, example in enumerate(iterate_examples("val")):
+            
+                _, tokens, mask, label = render_example(example)
+                tokens = tokens.to("cuda")
+                mask = mask.to("cuda")
+                # get the logits
+                with torch.no_grad():
+                    with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                        logits, loss = model(tokens)
+                    pred_norm = get_most_likely_row(tokens, mask, logits)
+                num_total += 1
+                num_correct_norm += int(pred_norm == label)
+            acc_norm = num_correct_norm / num_total
+            print(f"HellaSwag accuracy: {acc_norm:.4f}")
+            metrics = {"step": i, "hellaswag_acc": acc_norm}
+            with open(f"fgpt/hellaswag_eval_{now_str}.jsonl", "a") as f:
+                f.write(json.dumps(metrics) + "\n")
+            
         if i % 5000 == 0 and i > 0:
-            # Save model weights every 1000 steps
+            # Save model weights every 5000 steps
             checkpoint = {
                 'model_state_dict': model._orig_mod.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
@@ -90,7 +119,7 @@ if __name__ == "__main__":
     model = GPT(GPTConfig())
     model.to("cuda") 
     
-    prev_model_weights = "fgpt/checkpoint_20250706_1423_step_54262.pth"
+    prev_model_weights = "fgpt/checkpoint_20250830_1615_step_10000.pth"
     load_weights = False
     
     optimizer = torch.optim.AdamW(
@@ -112,15 +141,23 @@ if __name__ == "__main__":
     
     model = torch.compile(model)
    
-    try:
-        train(
-            num_steps=150_000,
-            model=model,
-            dataloader=dataloader,
-            optimizer=optimizer,
-            scheduler=scheduler,
-        )
-    except Exception as e:
-        print(f"An error occurred during training: {e}")
-        with open(f"fgpt/error_{now_str}.txt", "a") as f:
-            f.write(f"{datetime.now().isoformat()} - {str(e)}\n")
+    train(
+        num_steps=150_000,
+        model=model,
+        dataloader=dataloader,
+        optimizer=optimizer,
+        scheduler=scheduler,
+    )
+
+    # try:
+    #     train(
+    #         num_steps=150_000,
+    #         model=model,
+    #         dataloader=dataloader,
+    #         optimizer=optimizer,
+    #         scheduler=scheduler,
+    #     )
+    # except Exception as e:
+    #     print(f"An error occurred during training: {e}")
+    #     with open(f"fgpt/error_{now_str}.txt", "a") as f:
+    #         f.write(f"{datetime.now().isoformat()} - {str(e)}\n")
