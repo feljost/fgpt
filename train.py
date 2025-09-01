@@ -90,7 +90,7 @@ def train(
                         logits, _ = model(tokens)
                     pred_norm = get_most_likely_row(tokens, mask, logits)
                 num_total += 1
-                num_correct_norm += int(pre d_norm == label)
+                num_correct_norm += int(pred_norm == label)
             acc_norm = num_correct_norm / num_total
             print(f"HellaSwag accuracy: {acc_norm:.4f}")
             metrics = {"step": i, "hellaswag_acc": acc_norm}
