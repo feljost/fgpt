@@ -1,4 +1,5 @@
 """
+...Taken directly from Karphaty's video...
 Downloads and evaluates HellaSwag in Python.
 https://github.com/rowanz/hellaswag
 
