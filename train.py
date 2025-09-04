@@ -65,7 +65,7 @@ def train(
             with open(f"fgpt/train_metrics_{now_str}.jsonl", "a") as f:
                 f.write(json.dumps(metrics) + "\n")
         if i % 500 == 0:
-            generated_tokens, decoded_output = model_inference(model=model)
+            generated_tokens, decoded_output = model_inference(model=model, prompt="Once upon a time")
             print(f"Generated output: {decoded_output}")
             # Save generated output to a separate JSONL file
             sample = {
@@ -75,7 +75,7 @@ def train(
             with open(f"fgpt/sample_outputs_{now_str}.jsonl", "a") as f:
                 f.write(json.dumps(sample) + "\n")
         
-        if i % 5_000 == 0:
+        if i % 10_000 == 0:
             
             # evaluate on hellaswag
             print("Running Hellaswag eval")
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     model = GPT(GPTConfig())
     model.to("cuda") 
     
-    prev_model_weights = "fgpt/checkpoint_20250903_2010_step_5000.pth"
+    prev_model_weights = "fgpt/checkpoint_20250904_0642_step_140000.pth"
     load_weights = False
     
     optimizer = torch.optim.AdamW(
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     model = torch.compile(model)
    
     train(
-        num_steps=150_000,
+        num_steps=300_000,
         model=model,
         dataloader=dataloader,
         optimizer=optimizer,
