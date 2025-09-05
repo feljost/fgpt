@@ -117,8 +117,9 @@ def train(
 if __name__ == "__main__":
   
     model = GPT(GPTConfig())
-    model.to("cuda") 
-    
+    model.to("cuda")
+    current_step = 0
+    max_steps=300_000
     prev_model_weights = "fgpt/checkpoint_20250904_0642_step_140000.pth"
     load_weights = False
     
@@ -128,8 +129,8 @@ if __name__ == "__main__":
         betas=(0.9, 0.95),
         eps=1e-8
     )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=150_000)
-    current_step = 0
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_steps)
+    
     
     if load_weights:
         checkpoint = torch.load(prev_model_weights, map_location="cuda")
@@ -144,7 +145,7 @@ if __name__ == "__main__":
     model = torch.compile(model)
    
     train(
-        num_steps=300_000,
+        num_steps=max_steps,
         model=model,
         dataloader=dataloader,
         optimizer=optimizer,
