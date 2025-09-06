@@ -74,7 +74,7 @@ def log_train_metrics(
     if step % 100 == 0:
         metrics["val_loss"] = calculate_val_loss(model, dataloader_val)
 
-    if step % 1_000 == 0 and step > 1:
+    if step % 10_000 == 0 and step > 1:
         metrics["hellaswag_acc"] = hellaswag_eval(model)
 
     with open(f"fgpt/train_metrics_{now_str}.jsonl", "a") as f:
@@ -133,10 +133,6 @@ def train(
                 dataloader_val=dataloader_val, 
                 now_str=now_str
                 )
-        
-
-        if i % 10_000 == 0:
-            hellaswag_eval(model)
 
             
         if i % 5000 == 0 and i > 0:
@@ -160,7 +156,7 @@ if __name__ == "__main__":
     model = GPT(GPTConfig())
     model.to("cuda")
     current_step = 0
-    max_steps=300_000
+    max_steps=600_000 + 1
     start_lr = 1e-4
     min_lr = 0.05 * start_lr
     prev_model_weights = "fgpt/checkpoint_20250904_0642_step_140000.pth"

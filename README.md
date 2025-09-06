@@ -6,15 +6,24 @@ This repository provides scripts and notebooks for working with the FineWeb-Edu 
 
 ### FineWeb-Edu Data Preparation
 
-Run `fgpt/fineweb.py` to download and tokenize the FineWeb-Edu dataset. Sharded data will be saved to the `edu_fineweb10B` directory for use in LLM training.
+Run `fgpt/fineweb.py` to download and tokenize the FineWeb-Edu dataset. Sharded data will be saved to the `edu_fineweb100B` directory for use in LLM training.
 
 ```sh
 python fgpt/fineweb.py
 ```
 
-### Evaluation
+### Training Loop
 
-Training progress is tracked by evaluating the model's training loss. For further assessment, HellaSwag examples can be prepared using `fgpt/hellaswag.py` to measure multiple-choice accuracy.
+The training file does all the heavy lifting for you. 
+- Loads and optionally resumes a GPT model.
+- Runs training with AdamW optimizer and cosine LR scheduler.
+- Logs metrics (loss, gradient norm, tokens/sec, LR).
+- Periodically evaluates on validation and HellaSwag.
+- Saves checkpoints every 5000 steps.
+
+```sh
+python fgpt/train.py
+```
 
 ### Visualization
 
