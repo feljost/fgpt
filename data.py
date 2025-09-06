@@ -18,7 +18,7 @@ class DataLoader:
         self.T = T
         assert split in ['train', 'val'], "split must be either 'train' or 'val'"
 
-        data_root = "fgpt/edu_fineweb10B"
+        data_root = "fgpt/edu_fineweb100B"
         shards = os.listdir(data_root)
         shards = [s for s in shards if s.startswith(f"edufineweb_{split}")]
         self.shards = shards
