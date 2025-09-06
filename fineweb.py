@@ -16,7 +16,7 @@ from datasets import load_dataset # pip install datasets
 from tqdm import tqdm # pip install tqdm
 
 # ------------------------------------------
-local_dir = "edu_fineweb100B"
+local_dir = "edu_fineweb10B"
 remote_name = "sample-100BT"
 shard_size = int(1e8) # 100M tokens per shard, total of 100 shards
 
@@ -39,13 +39,12 @@ def tokenize(doc):
     tokens_np_uint16 = tokens_np.astype(np.uint16)
     return tokens_np_uint16
 
-def write_datafile(filename, tokens_np):
-    np.save(filename, tokens_np)
 
-# tokenize all documents and write output shards, each of shard_size tokens (last shard has remainder)
+# tokenize all documents and write output shards, each of shard_size tokens
 nprocs = max(1, os.cpu_count()//2)
 with mp.Pool(nprocs) as pool:
-    shard_index = 0
+    shard_index_train = 0
+    shard_index_val = 0
     # preallocate buffer to hold current shard
     all_tokens_np = np.empty((shard_size,), dtype=np.uint16)
     token_count = 0
@@ -63,21 +62,17 @@ with mp.Pool(nprocs) as pool:
             progress_bar.update(len(tokens))
         else:
             # write the current shard and start a new one
-            split = "val" if shard_index == 0 else "train"
-            filename = os.path.join(DATA_CACHE_DIR, f"edufineweb_{split}_{shard_index:06d}")
+            if np.random.rand() < 0.2 :
+                filename = os.path.join(DATA_CACHE_DIR, f"edufineweb_val_{shard_index_val:06d}")
+                shart_index_val += 1
+            else:
+                filename = os.path.join(DATA_CACHE_DIR, f"edufineweb_train_{shard_index_train:06d}")
+                shart_index_val += 1
             # split the document into whatever fits in this shard; the remainder goes to next one
             remainder = shard_size - token_count
             progress_bar.update(remainder)
             all_tokens_np[token_count:token_count+remainder] = tokens[:remainder]
-            write_datafile(filename, all_tokens_np)
-            shard_index += 1
+            np.save(filename, all_tokens_np)
             progress_bar = None
-            # populate the next shard with the leftovers of the current doc
-            all_tokens_np[0:len(tokens)-remainder] = tokens[remainder:]
-            token_count = len(tokens)-remainder
-
-    # write any remaining tokens as the last shard
-    if token_count != 0:
-        split = "val" if shard_index == 0 else "train"
-        filename = os.path.join(DATA_CACHE_DIR, f"edufineweb_{split}_{shard_index:06d}")
-        write_datafile(filename, all_tokens_np[:token_count])
+    
+    # We dismiss the last remainder shard (we anyhow dont use all of the data)
