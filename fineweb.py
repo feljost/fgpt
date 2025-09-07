@@ -16,7 +16,7 @@ from datasets import load_dataset # pip install datasets
 from tqdm import tqdm # pip install tqdm
 
 # ------------------------------------------
-local_dir = "edu_fineweb10B"
+local_dir = "edu_fineweb100B"
 remote_name = "sample-100BT"
 shard_size = int(1e8) # 100M tokens per shard, total of 100 shards
 
@@ -58,21 +58,25 @@ with mp.Pool(nprocs) as pool:
             token_count += len(tokens)
             # update progress bar
             if progress_bar is None:
-                progress_bar = tqdm(total=shard_size, unit="tokens", desc=f"Shard {shard_index}")
+                progress_bar = tqdm(total=shard_size, unit="tokens", desc=f"Shard {shard_index_val + shard_index_train}")
             progress_bar.update(len(tokens))
         else:
             # write the current shard and start a new one
-            if np.random.rand() < 0.2 :
+            if np.random.rand() < 0.1 :
                 filename = os.path.join(DATA_CACHE_DIR, f"edufineweb_val_{shard_index_val:06d}")
-                shart_index_val += 1
+                shard_index_val += 1
             else:
                 filename = os.path.join(DATA_CACHE_DIR, f"edufineweb_train_{shard_index_train:06d}")
-                shart_index_val += 1
+                shard_index_train += 1
             # split the document into whatever fits in this shard; the remainder goes to next one
             remainder = shard_size - token_count
             progress_bar.update(remainder)
             all_tokens_np[token_count:token_count+remainder] = tokens[:remainder]
             np.save(filename, all_tokens_np)
             progress_bar = None
+            # populate the next shard with the leftovers of the current doc
+            all_tokens_np[0:len(tokens)-remainder] = tokens[remainder:]
+            token_count = len(tokens)-remainder
+
     
-    # We dismiss the last remainder shard (we anyhow dont use all of the data)
+    # Ignore last remainder as we don't train with all data
