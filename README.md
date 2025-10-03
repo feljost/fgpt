@@ -4,7 +4,8 @@ This repository provides scripts and notebooks for to train a GPT2-like model on
 
 The model is follows the GPT2 architecture and uses the same GPT2 tokenizer. Size wise, it is roughly between GPT2-Small and GPT2-Medium. It has 270M Parameters with 16 layers and 16 heads. The learning rate schedule and other hyperparameters are also different to allow for more fun when tinkering with the architecture. The training happened on a single NVIDIA GH200 480GB.
 
-Model performance is primarily assessed by monitoring validation & training loss, with additional evaluation using the HellaSwag benchmark. Example outputs of the model are also checked.
+Model performance is primarily assessed by monitoring validation & training loss, with additional evaluation using the HellaSwag benchmark. Example outputs of the model are also checked over time.
+Unlike Karpathy's original code, this repository splits the FineWeb-Edu dataset at the document level, ensuring no document appears in both training and validation sets. This prevents data leakage and ensures a clean evaluation.
 
 ## Usage
 

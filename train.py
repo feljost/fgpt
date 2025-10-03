@@ -86,7 +86,7 @@ def log_sample_output(model, step, now_str=now_str):
     generated_tokens, decoded_output = model_inference(
         model=model, prompt="Once upon a time"
     )
-    print(f"Step: {step} |Generated output: {decoded_output}")
+    print(f"Step: {step} | Generated output: {decoded_output}")
     # Save generated output to a separate JSONL file
     sample = {
         "step": step,
