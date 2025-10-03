@@ -133,3 +133,11 @@ class GPT(nn.Module):
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
 
         return logits, loss 
+
+if __name__ == "__main__":
+    config = GPTConfig()
+    model = GPT(config)
+    num_params = sum(p.numel() for p in model.parameters())
+    print(f"Model: GPT")
+    print(f"Number of parameters: {num_params:,}")
+    print(f"Config: {config}")

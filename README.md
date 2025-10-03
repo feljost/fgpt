@@ -1,15 +1,21 @@
 ## Overview
 
-This repository provides scripts and notebooks for working with the FineWeb-Edu dataset and evaluating language model training. The main workflow involves using the FineWeb-Edu dataset to train a GPT-2-like large language model (LLM). Model performance is primarily assessed by monitoring training loss, with additional evaluation using the HellaSwag benchmark.
+This repository provides scripts and notebooks for to train a GPT2-like model on the FineWeb-Edu Dataset. The purpose of the repo is not to create a SOTA model but rather to experiment and learn. The code is mainly based on Karphaty's youtube videos. 
+
+The model is follows the GPT2 architecture and uses the same GPT2 tokenizer. Size wise, it is roughly between GPT2-Small and GPT2-Medium. It has 270M Parameters with 16 layers and 16 heads. The learning rate schedule and other hyperparameters are also different to allow for more fun when tinkering with the architecture. The training happened on a single NVIDIA GH200 480GB.
+
+Model performance is primarily assessed by monitoring validation & training loss, with additional evaluation using the HellaSwag benchmark. Example outputs of the model are also checked.
 
 ## Usage
 
+You will need a strong GPU with cuda to run these scripts. If you don't have one locally, I suggest getting one in the cloud (I used lambda labs).
+
 ### FineWeb-Edu Data Preparation
 
-Run `fgpt/fineweb.py` to download and tokenize the FineWeb-Edu dataset. Sharded data will be saved to the `edu_fineweb100B` directory for use in LLM training.
+Run `fineweb.py` to download and tokenize the FineWeb-Edu dataset. Sharded data will be saved to the `edu_fineweb100B` directory for use in LLM training.
 
 ```sh
-python fgpt/fineweb.py
+python fineweb.py
 ```
 
 ### Training Loop
@@ -22,23 +28,10 @@ The training file does all the heavy lifting for you.
 - Saves checkpoints every 5000 steps.
 
 ```sh
-python fgpt/train.py
+python train.py
 ```
 
-### Visualization
-
-Open `fgpt/visualize.ipynb` in Jupyter or VS Code to plot training metrics, including loss and HellaSwag accuracy.
-
-## Requirements
-
-- Python 3.10+
-- `numpy`
-- `tiktoken`
-- `datasets`
-- `tqdm`
-- `torch`
-- `matplotlib`
-- `pandas`
+### Requirements
 
 Install dependencies with:
 
@@ -46,3 +39,14 @@ Install dependencies with:
 pip install numpy tiktoken datasets tqdm torch matplotlib pandas
 ```
 
+## Results
+
+
+
+Visualizations created with `visualize.ipynb`.
+
+
+## Future To Do's
+
+- Instruction Finetuning
+- Preference-optimizitaion (DPO or other easy to implement approach)

@@ -21,9 +21,10 @@ from hellaswag import get_most_likely_row
 now_str = datetime.now().strftime("%Y%m%d_%H%M")
 # now_str = "20250901_1702"
 
+
 def hellaswag_eval(model):
-    """Evaluates a PyTorch model on the HellaSwag validation set 
-    and logs accuracy metrics to a JSONL file. """
+    """Evaluates a PyTorch model on the HellaSwag validation set
+    and logs accuracy metrics to a JSONL file."""
     # evaluate on hellaswag
     print("Running Hellaswag eval")
     model.eval()
@@ -44,23 +45,23 @@ def hellaswag_eval(model):
     model.train()
     print(f"HellaSwag accuracy: {acc_norm:.4f}")
     return acc_norm
-    
+
 
 def log_train_metrics(
-    model, 
-    step:int, 
-    loss:float, 
-    norm:float, 
-    tokens_per_second:float, 
-    lr:float, 
-    shard_index:int, 
-    dataloader_val, 
-    now_str=now_str
-    ):
+    model,
+    step: int,
+    loss: float,
+    norm: float,
+    tokens_per_second: float,
+    lr: float,
+    shard_index: int,
+    dataloader_val,
+    now_str=now_str,
+):
     print(
         f"Step: {step} | Loss: {loss:.4f} | norm {norm:.4f} | t/s: {tokens_per_second:.2f} | lr {optimizer.param_groups[0]['lr']} | shard: {shard_index}"
     )
-    
+
     metrics = {
         "step": step,
         "train_loss": loss,
@@ -77,13 +78,28 @@ def log_train_metrics(
     if step % 10_000 == 0 and step > 1:
         metrics["hellaswag_acc"] = hellaswag_eval(model)
 
-    with open(f"fgpt/train_metrics_{now_str}.jsonl", "a") as f:
+    with open(f"logs/train_metrics_{now_str}.jsonl", "a") as f:
         f.write(json.dumps(metrics) + "\n")
+
+
+def log_sample_output(model, step, now_str=now_str):
+    generated_tokens, decoded_output = model_inference(
+        model=model, prompt="Once upon a time"
+    )
+    print(f"Step: {step} |Generated output: {decoded_output}")
+    # Save generated output to a separate JSONL file
+    sample = {
+        "step": step,
+        "decoded_output": decoded_output,
+    }
+    with open(f"logs/sample_outputs_{now_str}.jsonl", "a") as f:
+        f.write(json.dumps(sample) + "\n")
+
 
 def calculate_val_loss(model, dataloader_val, now_str=now_str):
     model.eval()
     with torch.no_grad():
-        x_val, y_val, _ = dataloader_val.next_batch() # will loop through indefinitely
+        x_val, y_val, _ = dataloader_val.next_batch()  # will loop through indefinitely
         x_val, y_val = x_val.to("cuda"), y_val.to("cuda")
         with torch.autocast("cuda", dtype=torch.bfloat16):
             _, val_loss = model(x_val, y_val)
@@ -123,71 +139,69 @@ def train(
         tokens_per_second = B * T / (t1 - t0)
         if i % 5 == 0:
             log_train_metrics(
-                model=model, 
+                model=model,
                 step=i,
-                loss=float(loss.item()), 
-                norm=norm, 
-                tokens_per_second=tokens_per_second, 
-                lr=float(optimizer.param_groups[0]["lr"]), 
-                shard_index = shard_index, 
-                dataloader_val=dataloader_val, 
-                now_str=now_str
-                )
+                loss=float(loss.item()),
+                norm=norm,
+                tokens_per_second=tokens_per_second,
+                lr=float(optimizer.param_groups[0]["lr"]),
+                shard_index=shard_index,
+                dataloader_val=dataloader_val,
+                now_str=now_str,
+            )
+        
+        if i % 100 == 0:
+            log_sample_output(model, step=i, now_str=now_str)
 
-            
         if i % 5000 == 0 and i > 0:
             # Save model weights every 5000 steps
             checkpoint = {
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'scheduler_state_dict': scheduler.state_dict(),
-                'step': i,
-                'loss': loss.item()
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "scheduler_state_dict": scheduler.state_dict(),
+                "step": i,
+                "loss": loss.item(),
             }
-            torch.save(checkpoint, f"fgpt/checkpoint_{now_str}_step_{i}.pth")
+            torch.save(checkpoint, f"checkpoints/checkpoint_{now_str}_step_{i}.pth")
             print(f"Model weights saved at step {i}.")
 
     print("Training complete.")
-    torch.save(model.state_dict(), f"fgpt/model_weights_{now_str}.pth")
+    torch.save(model.state_dict(), f"model_weights_{now_str}.pth")
 
 
 if __name__ == "__main__":
-  
+
     model = GPT(GPTConfig())
     model.to("cuda")
     current_step = 0
-    max_steps=600_000 + 1
+    max_steps = 500_000 + 1
     start_lr = 1e-4
     min_lr = 0.05 * start_lr
-    prev_model_weights = "fgpt/checkpoint_20250904_0642_step_140000.pth"
+
+    # use this to restart training from a specific spot
+    prev_model_weights = "checkpoint_20250904_0642_step_140000.pth"
     load_weights = False
-    
+
     optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr= 1e-4,
-        betas=(0.9, 0.95),
-        eps=1e-8
+        model.parameters(), lr=1e-4, betas=(0.9, 0.95), eps=1e-8
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, 
-        T_max=max_steps, 
-        eta_min=min_lr
+        optimizer, T_max=max_steps, eta_min=min_lr
     )
-    
-    
+
     if load_weights:
         checkpoint = torch.load(prev_model_weights, map_location="cuda")
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        current_step = checkpoint["step"]+1
+        model.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        current_step = checkpoint["step"] + 1
 
     torch.set_float32_matmul_precision("medium")
-    dataloader_train = DataLoader(B, T, split="train", shard_index = 0)
-    dataloader_val = DataLoader(B, T, split="val", shard_index = 0)
-    
+    dataloader_train = DataLoader(B, T, split="train", shard_index=0)
+    dataloader_val = DataLoader(B, T, split="val", shard_index=0)
+
     model = torch.compile(model)
-   
+
     train(
         num_steps=max_steps,
         model=model,
