@@ -57,7 +57,7 @@ The table below shows how the sample outputs evolved with the steps of training.
 | 0    | Once upon a timebattle RM steroids AgainFootballgments mobile manifests Krishna Lynnscroll Ey Residents MongoShe subconscious the reports braceograp Soft toxinsHuh Finch SPR Stonerid Bos Psyyles Provider ca realizes shelters numberingshock dissentduction dreadfuladminist arrangement Happy chickens midfielder blurryChurch sensibilitiesMenu Charity shack |
 | 10'000    | Once upon a time are then lying actually at rest. The Copenhagenosphere movement was then out of Telespace yet, by the indicator its kinds were moving in very tall days, awaiting unfolding success. In the twentieth century, many of the most famousties of the Saturn |
 | 20'000    | Once upon a time, and the development of ability will be immensely important to existing technologies and technologies across the representing lab functions. The Institutional Review of Physics, Volume 99, No. 2 above, presented the teeth to Sc Removal Process as a matter of a coordinated |
-| 30'000    | ... |
+| 30'000    | Once upon a time. Explain and answer questions using these questions carefully during class time. PRATECHICAL guest story: prepare the right job of a episodes to ensure your students will work smoothly. If you are working on a line, small or large, or |
 
 ## Future To Do's
 
