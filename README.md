@@ -42,10 +42,22 @@ pip install numpy tiktoken datasets tqdm torch matplotlib pandas
 
 ## Results
 
+The expected xent floor is around 3.2 - 3.8 according to ChatGPT. I made it to a around 3.5 training loss and 3.9 val loss. 
 
+![Training Loss Curve v0.1](/images/train-loss.png)
 
-Visualizations created with `visualize.ipynb`.
+The Hellaswag eval is quite terrible, sitting at around 26% - 28% (depending on the run). This is barely better than random guessing which would be 25%. We are still quite far off from emerging intelligence. We can observe slight overfitting starting roughly around 20k steps.
 
+#### Sample outputs:
+
+The table below shows how the sample outputs evolved with the steps of training. You can see that the model learns rough grammar and does not mix up tokens that don't go together (for the most part). It also starts to stick to semantic topics better. The input text is "Once upon a time", after which the model generates the rest.
+
+| Step | Output |
+|------|--------|
+| 0    | Once upon a timebattle RM steroids AgainFootballgments mobile manifests Krishna Lynnscroll Ey Residents MongoShe subconscious the reports braceograp Soft toxinsHuh Finch SPR Stonerid Bos Psyyles Provider ca realizes shelters numberingshock dissentduction dreadfuladminist arrangement Happy chickens midfielder blurryChurch sensibilitiesMenu Charity shack |
+| 10'000    | Once upon a time are then lying actually at rest. The Copenhagenosphere movement was then out of Telespace yet, by the indicator its kinds were moving in very tall days, awaiting unfolding success. In the twentieth century, many of the most famousties of the Saturn |
+| 20'000    | Once upon a time, and the development of ability will be immensely important to existing technologies and technologies across the representing lab functions. The Institutional Review of Physics, Volume 99, No. 2 above, presented the teeth to Sc Removal Process as a matter of a coordinated |
+| 30'000    | ... |
 
 ## Future To Do's
 
