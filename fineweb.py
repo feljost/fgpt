@@ -1,82 +1,93 @@
 """
-...Taken directly from Karphaty's video...
-FineWeb-Edu dataset (for srs pretraining)
-https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu
-Downloads and tokenizes the data and saves data shards to disk.
-Run simply as:
-$ python fineweb.py
-Will save shards to the local directory "edu_fineweb10B".
+This fineweb dataset loader is different to Karpathy's implementation
+by it taking each document of the dataset and assigning ttrainc / val 
+split on document level and not on shard level. This is because we don't
+want document overlap in between train and validation sets.
 """
 
 import os
+import hashlib
 import multiprocessing as mp
 import numpy as np
 import tiktoken
-from datasets import load_dataset # pip install datasets
-from tqdm import tqdm # pip install tqdm
+from datasets import load_dataset
+from tqdm import tqdm
+import random
 
-# ------------------------------------------
+
 local_dir = "edu_fineweb100B"
 remote_name = "sample-100BT"
-shard_size = int(1e8) # 100M tokens per shard, total of 100 shards
+shard_size =  100_000_000
+val_fraction = 0.10            
 
-# create the cache the local directory if it doesn't exist yet
+shuffle_seed = 42
+
 DATA_CACHE_DIR = os.path.join(os.path.dirname(__file__), local_dir)
 os.makedirs(DATA_CACHE_DIR, exist_ok=True)
 
-# download the dataset
 fw = load_dataset("HuggingFaceFW/fineweb-edu", name=remote_name, split="train")
 
-# init the tokenizer
+
+fw = fw.shuffle(seed=shuffle_seed) # shuffle dataset for better mix
+
+
 enc = tiktoken.get_encoding("gpt2")
-eot = enc._special_tokens['<|endoftext|>'] # end of text token
+EOT = enc._special_tokens['<|endoftext|>']
+
 def tokenize(doc):
-    # tokenizes a single document and returns a numpy array of uint16 tokens
-    tokens = [eot] # the special <|endoftext|> token delimits all documents
+    # returns np.uint16 token array for one document (with leading EOT)
+    tokens = [EOT]
     tokens.extend(enc.encode_ordinary(doc["text"]))
-    tokens_np = np.array(tokens)
-    assert (0 <= tokens_np).all() and (tokens_np < 2**16).all(), "token dictionary too large for uint16"
-    tokens_np_uint16 = tokens_np.astype(np.uint16)
-    return tokens_np_uint16
+    tokens_np = np.array(tokens, dtype=np.int32)
+    assert (0 <= tokens_np).all() and (tokens_np < 2**16).all(), "uint16 overflow"
+    return tokens_np.astype(np.uint16, copy=False)
 
 
-# tokenize all documents and write output shards, each of shard_size tokens
-nprocs = max(1, os.cpu_count()//2)
+class SplitBuffer:
+    def __init__(self, split_name):
+        self.split = split_name
+        self.shard_idx = 0
+        self.buf = np.empty((shard_size,), dtype=np.uint16)
+        self.count = 0
+        self.pbar = None
+
+    def _filename(self):
+        return os.path.join(DATA_CACHE_DIR, f"edufineweb_{self.split}_{self.shard_idx:06d}")
+
+    def _ensure_pbar(self):
+        if self.pbar is None:
+            self.pbar = tqdm(total=shard_size, unit="tokens", desc=f"{self.split} shard {self.shard_idx}")
+
+    def add_tokens(self, tok_arr):
+        i = 0
+        n = len(tok_arr)
+        while i < n:
+            space = shard_size - self.count
+            take = min(space, n - i)
+            # fill
+            self.buf[self.count:self.count+take] = tok_arr[i:i+take]
+            self.count += take
+            self._ensure_pbar()
+            self.pbar.update(take)
+            i += take
+
+            # flush if full
+            if self.count == shard_size:
+                np.save(self._filename(), self.buf)
+                if self.pbar:
+                    self.pbar.close()
+                self.pbar = None
+                self.shard_idx += 1
+                self.count = 0
+
+
+# Actual loop
+nprocs = max(1, os.cpu_count() // 2)
+train_buf = SplitBuffer("train")
+val_buf   = SplitBuffer("val")
+
 with mp.Pool(nprocs) as pool:
-    shard_index_train = 0
-    shard_index_val = 0
-    # preallocate buffer to hold current shard
-    all_tokens_np = np.empty((shard_size,), dtype=np.uint16)
-    token_count = 0
-    progress_bar = None
-    for tokens in pool.imap(tokenize, fw, chunksize=16):
+    for tok in pool.imap(tokenize, fw, chunksize=16):
+        split = "val" if random.random() < val_fraction else "train"
+        (val_buf if split == "val" else train_buf).add_tokens(tok)
 
-        # is there enough space in the current shard for the new tokens?
-        if token_count + len(tokens) < shard_size:
-            # simply append tokens to current shard
-            all_tokens_np[token_count:token_count+len(tokens)] = tokens
-            token_count += len(tokens)
-            # update progress bar
-            if progress_bar is None:
-                progress_bar = tqdm(total=shard_size, unit="tokens", desc=f"Shard {shard_index_val + shard_index_train}")
-            progress_bar.update(len(tokens))
-        else:
-            # write the current shard and start a new one
-            if np.random.rand() < 0.1 :
-                filename = os.path.join(DATA_CACHE_DIR, f"edufineweb_val_{shard_index_val:06d}")
-                shard_index_val += 1
-            else:
-                filename = os.path.join(DATA_CACHE_DIR, f"edufineweb_train_{shard_index_train:06d}")
-                shard_index_train += 1
-            # split the document into whatever fits in this shard; the remainder goes to next one
-            remainder = shard_size - token_count
-            progress_bar.update(remainder)
-            all_tokens_np[token_count:token_count+remainder] = tokens[:remainder]
-            np.save(filename, all_tokens_np)
-            progress_bar = None
-            # populate the next shard with the leftovers of the current doc
-            all_tokens_np[0:len(tokens)-remainder] = tokens[remainder:]
-            token_count = len(tokens)-remainder
-
-    
-    # Ignore last remainder as we don't train with all data
