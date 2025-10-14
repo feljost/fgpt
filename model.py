@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-B = 32  # batch size
+B = 16  # batch size
 T = 1024  # sequence length / time
 
 
@@ -15,9 +15,9 @@ class GPTConfig:
         50304  # GPT-2's vocab size 50257 --> set to power of 2 for faster cuda
     )
     n_layer: int = 32
-    n_head: int = 32
+    n_head: int = 24
     n_embd: int = (
-        1024  # embedding dimension -> number of features in each token embedding
+        1248  # embedding dimension -> number of features in each token embedding
     )
 
 
