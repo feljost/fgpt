@@ -117,8 +117,12 @@ def train(
     optimizer,
     scheduler,
     current_step=0,
+    accumulation_steps=5,
 ):
     print(f"Starting training for {num_steps} steps...")
+
+    # initialize norm_val for logging
+    norm_val = 0
 
     for i in range(current_step, num_steps):
         t0 = time.time()
@@ -127,22 +131,33 @@ def train(
         optimizer.zero_grad()  # start with zero gradients
         with torch.autocast("cuda", dtype=torch.bfloat16):
             logits, loss = model(x, y)  # (B, T, vocab_size)
-        loss.backward()  # compute gradients
-        norm = torch.nn.utils.clip_grad_norm_(
-            model.parameters(), 1.0
-        )  # clip gradients to avoid exploding gradients
-        optimizer.step()  # update weights and biases
-        scheduler.step()  # update learning rate
+        
+        # keep a copy for logging (unscaled)
+        loss_value = float(loss.item())
 
+         # scale loss down so gradients are the average across the virtual batch
+        (loss / accumulation_steps).backward()
+
+        # perform optimizer step only at the end of an accumulation cycle
+        if (i - current_step + 1) % accumulation_steps == 0:
+            # clip grads before stepping
+            norm = torch.nn.utils.clip_grad_norm_(
+                model.parameters(), 1.0
+            )
+            norm_val = float(norm)
+            optimizer.step()  # update weights and biases
+            scheduler.step()  # update learning rate
+            optimizer.zero_grad()
+        
         torch.cuda.synchronize()
         t1 = time.time()
         tokens_per_second = B * T / (t1 - t0)
-        if i % 5 == 0:
+        if i % 10 == 0:
             log_train_metrics(
                 model=model,
                 step=i,
-                loss=float(loss.item()),
-                norm=norm,
+                loss=loss_value,
+                norm=norm_val,
                 tokens_per_second=tokens_per_second,
                 lr=float(optimizer.param_groups[0]["lr"]),
                 shard_index=shard_index,
@@ -176,6 +191,7 @@ if __name__ == "__main__":
     max_steps = 80_000 + 1
     start_lr = 5e-5
     min_lr = 0.05 * start_lr
+    accumulation_steps = 5
 
     # use this to restart training from a specific spot
     prev_model_weights = "checkpoint_20250904_0642_step_140000.pth"
@@ -222,4 +238,5 @@ if __name__ == "__main__":
         optimizer=optimizer,
         scheduler=scheduler,
         current_step=current_step,
+        accumulation_steps=accumulation_steps
     )
