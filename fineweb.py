@@ -1,6 +1,6 @@
 """
 This fineweb dataset loader is different to Karpathy's implementation
-by it taking each document of the dataset and assigning ttrainc / val 
+by it taking each document of the dataset and assigning ttrainc / val
 split on document level and not on shard level. This is because we don't
 want document overlap in between train and validation sets.
 """
@@ -17,8 +17,8 @@ import random
 
 local_dir = "edu_fineweb100B"
 remote_name = "sample-100BT"
-shard_size =  100_000_000
-val_fraction = 0.10            
+shard_size = 100_000_000
+val_fraction = 0.10
 
 shuffle_seed = 42
 
@@ -28,11 +28,12 @@ os.makedirs(DATA_CACHE_DIR, exist_ok=True)
 fw = load_dataset("HuggingFaceFW/fineweb-edu", name=remote_name, split="train")
 
 
-fw = fw.shuffle(seed=shuffle_seed) # shuffle dataset for better mix
+fw = fw.shuffle(seed=shuffle_seed)  # shuffle dataset for better mix
 
 
 enc = tiktoken.get_encoding("gpt2")
-EOT = enc._special_tokens['<|endoftext|>']
+EOT = enc._special_tokens["<|endoftext|>"]
+
 
 def tokenize(doc):
     # returns np.uint16 token array for one document (with leading EOT)
@@ -52,11 +53,17 @@ class SplitBuffer:
         self.pbar = None
 
     def _filename(self):
-        return os.path.join(DATA_CACHE_DIR, f"edufineweb_{self.split}_{self.shard_idx:06d}")
+        return os.path.join(
+            DATA_CACHE_DIR, f"edufineweb_{self.split}_{self.shard_idx:06d}"
+        )
 
     def _ensure_pbar(self):
         if self.pbar is None:
-            self.pbar = tqdm(total=shard_size, unit="tokens", desc=f"{self.split} shard {self.shard_idx}")
+            self.pbar = tqdm(
+                total=shard_size,
+                unit="tokens",
+                desc=f"{self.split} shard {self.shard_idx}",
+            )
 
     def add_tokens(self, tok_arr):
         i = 0
@@ -65,7 +72,7 @@ class SplitBuffer:
             space = shard_size - self.count
             take = min(space, n - i)
             # fill
-            self.buf[self.count:self.count+take] = tok_arr[i:i+take]
+            self.buf[self.count : self.count + take] = tok_arr[i : i + take]
             self.count += take
             self._ensure_pbar()
             self.pbar.update(take)
@@ -84,10 +91,9 @@ class SplitBuffer:
 # Actual loop
 nprocs = max(1, os.cpu_count() // 2)
 train_buf = SplitBuffer("train")
-val_buf   = SplitBuffer("val")
+val_buf = SplitBuffer("val")
 
 with mp.Pool(nprocs) as pool:
     for tok in pool.imap(tokenize, fw, chunksize=16):
         split = "val" if random.random() < val_fraction else "train"
         (val_buf if split == "val" else train_buf).add_tokens(tok)
-

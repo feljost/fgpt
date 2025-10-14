@@ -7,13 +7,18 @@ from torch.nn import functional as F
 B = 32  # batch size
 T = 1024  # sequence length / time
 
+
 @dataclass
 class GPTConfig:
     block_size: int = 1024  # context size, how many tokens we can look back
-    vocab_size: int = 50304 # GPT-2's vocab size 50257 --> set to power of 2 for faster cuda
-    n_layer: int = 16
-    n_head: int = 16
-    n_embd: int = 1024 # embedding dimension -> number of features in each token embedding
+    vocab_size: int = (
+        50304  # GPT-2's vocab size 50257 --> set to power of 2 for faster cuda
+    )
+    n_layer: int = 32
+    n_head: int = 32
+    n_embd: int = (
+        1024  # embedding dimension -> number of features in each token embedding
+    )
 
 
 class CausalSelfAttention(nn.Module):
@@ -22,7 +27,7 @@ class CausalSelfAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
         assert config.n_embd % config.n_head == 0
-        
+
         # this could be replaced with flash attention later
         self.attn = nn.MultiheadAttention(
             embed_dim=config.n_embd, num_heads=config.n_head, batch_first=True
@@ -77,7 +82,6 @@ class Block(nn.Module):
 
 
 class GPT(nn.Module):
-
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -114,9 +118,9 @@ class GPT(nn.Module):
     def forward(self, idx, targets=None):
         # idx: (B, T) -> batch of token indices
         B, T = idx.size()
-        assert (
-            T <= self.config.block_size
-        ), f"Cannot forward sequence of length {T} > block size {self.config.block_size}"
+        assert T <= self.config.block_size, (
+            f"Cannot forward sequence of length {T} > block size {self.config.block_size}"
+        )
 
         pos = torch.arange(0, T, dtype=torch.long, device=idx.device)  # shape (T,)
         pos_emb = self.transformer.wpe(pos)  # (T, n_emberd) position embeddings
@@ -132,7 +136,8 @@ class GPT(nn.Module):
         if targets is not None:
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
 
-        return logits, loss 
+        return logits, loss
+
 
 if __name__ == "__main__":
     config = GPTConfig()

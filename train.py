@@ -1,4 +1,5 @@
 import time
+import math
 import os
 from dataclasses import dataclass
 import numpy as np
@@ -117,7 +118,6 @@ def train(
     scheduler,
     current_step=0,
 ):
-
     print(f"Starting training for {num_steps} steps...")
 
     for i in range(current_step, num_steps):
@@ -149,7 +149,7 @@ def train(
                 dataloader_val=dataloader_val,
                 now_str=now_str,
             )
-        
+
         if i % 100 == 0:
             log_sample_output(model, step=i, now_str=now_str)
 
@@ -170,11 +170,10 @@ def train(
 
 
 if __name__ == "__main__":
-
     model = GPT(GPTConfig())
     model.to("cuda")
     current_step = 0
-    max_steps = 200_000 + 1
+    max_steps = 80_000 + 1
     start_lr = 5e-5
     min_lr = 0.05 * start_lr
 
@@ -185,9 +184,22 @@ if __name__ == "__main__":
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=start_lr, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.1
     )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=max_steps, eta_min=min_lr
-    )
+
+    # linear warmup for the first 1000 steps, then cosine decay to min_lr
+    warmup_steps = 1000
+
+    def lr_lambda(step: int):
+        # step starts at 0
+        if step < warmup_steps:
+            return float(step) / float(max(1, warmup_steps))
+        # cosine decay from start_lr down to min_lr over the remaining steps
+        progress = float(step - warmup_steps) / float(max(1, max_steps - warmup_steps))
+        progress = min(1.0, max(0.0, progress))
+        cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
+        min_ratio = float(min_lr) / float(start_lr)
+        return min_ratio + (1.0 - min_ratio) * cosine
+
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
     if load_weights:
         checkpoint = torch.load(prev_model_weights, map_location="cuda")
