@@ -203,13 +203,16 @@ if __name__ == "__main__":
 
     # linear warmup for the first 1000 steps, then cosine decay to min_lr
     warmup_steps = 1000
+    total_updates = math.ceil(max_steps / accumulation_steps)
+    warmup_steps = 1000
+    warmup_updates = math.ceil(warmup_steps / accumulation_steps)
 
     def lr_lambda(step: int):
         # step starts at 0
-        if step < warmup_steps:
-            return float(step) / float(max(1, warmup_steps))
+        if step < warmup_updates:
+            return float(step) / float(max(1, warmup_updates))
         # cosine decay from start_lr down to min_lr over the remaining steps
-        progress = float(step - warmup_steps) / float(max(1, max_steps - warmup_steps))
+        progress = float(step - warmup_updates) / float(max(1, total_updates - warmup_updates))
         progress = min(1.0, max(0.0, progress))
         cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
         min_ratio = float(min_lr) / float(start_lr)
