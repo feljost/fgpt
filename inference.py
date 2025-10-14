@@ -3,9 +3,13 @@ import torch
 from torch.nn import functional as F
 
 
-def model_inference(model, enc=tiktoken.get_encoding("gpt2"), prompt="Hello"):
+def model_inference(
+    model,
+    enc=tiktoken.get_encoding("gpt2"),
+    prompt="Hello",
+    max_tokens=50,
+    ):
     # Inference
-    max_length = 50
     tokens = enc.encode(prompt)  # encode a prompt
     # add batch dimension and move to GPU
     tokens = torch.tensor(tokens, dtype=torch.long, device="cuda").unsqueeze(0)
@@ -13,7 +17,7 @@ def model_inference(model, enc=tiktoken.get_encoding("gpt2"), prompt="Hello"):
 
     # generate tokens
 
-    for _ in range(max_length):
+    for _ in range(max_tokens):
         logits, loss = model(x)  # (B, T, vocab_size)
         logits = logits[
             :, -1, :
