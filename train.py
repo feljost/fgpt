@@ -188,7 +188,7 @@ if __name__ == "__main__":
     model = GPT(GPTConfig())
     model.to("cuda")
     current_step = 0
-    max_steps = 80_000 + 1
+    max_steps = 200_000 + 1
     start_lr = 5e-5
     min_lr = 0.05 * start_lr
     accumulation_steps = 5
