@@ -57,6 +57,7 @@ def log_train_metrics(
     lr: float,
     shard_index: int,
     dataloader_val,
+    val_batches,
     now_str=now_str,
 ):
     print(
@@ -74,7 +75,7 @@ def log_train_metrics(
         "shard_index": shard_index,
     }
     if step % 128 == 0:
-        metrics["val_loss"] = calculate_val_loss(model, dataloader_val)
+        metrics["val_loss"] = calculate_val_loss(model, val_batches)
 
     if step % 10_000 == 0 and step > 1:
         metrics["hellaswag_acc"] = hellaswag_eval(model)
@@ -99,7 +100,7 @@ def log_sample_output(model, step, now_str=now_str):
 
 
 
-def calculate_val_loss(model, val_batches=val_batches):
+def calculate_val_loss(model, val_batches):
     model.eval()
     losses = []
     with torch.no_grad():
