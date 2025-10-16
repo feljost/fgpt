@@ -73,7 +73,7 @@ def log_train_metrics(
         "lr": lr,
         "shard_index": shard_index,
     }
-    if step % 100 == 0:
+    if step % 128 == 0:
         metrics["val_loss"] = calculate_val_loss(model, dataloader_val)
 
     if step % 10_000 == 0 and step > 1:
@@ -97,16 +97,19 @@ def log_sample_output(model, step, now_str=now_str):
         f.write(json.dumps(sample) + "\n")
 
 
-def calculate_val_loss(model, dataloader_val, now_str=now_str):
+
+
+def calculate_val_loss(model, val_batches=val_batches):
     model.eval()
+    losses = []
     with torch.no_grad():
-        x_val, y_val, _ = dataloader_val.next_batch()  # will loop through indefinitely
-        x_val, y_val = x_val.to("cuda"), y_val.to("cuda")
-        with torch.autocast("cuda", dtype=torch.bfloat16):
-            _, val_loss = model(x_val, y_val)
-    print(f"Validation loss: {val_loss.item():.4f}")
+        for x_val, y_val, _ in val_batches:
+            x_val, y_val = x_val.to("cuda"), y_val.to("cuda")
+            with torch.autocast("cuda", dtype=torch.bfloat16):
+                _, val_loss = model(x_val, y_val)
+            losses.append(val_loss.item())
     model.train()
-    return val_loss.item()
+    return sum(losses) / len(losses)
 
 
 def train(
@@ -114,6 +117,7 @@ def train(
     model,
     dataloader_train,
     dataloader_val,
+    val_batches,
     optimizer,
     scheduler,
     current_step=0,
@@ -128,7 +132,6 @@ def train(
         t0 = time.time()
         x, y, shard_index = dataloader_train.next_batch()
         x, y = x.to("cuda"), y.to("cuda")
-        optimizer.zero_grad()  # start with zero gradients
         with torch.autocast("cuda", dtype=torch.bfloat16):
             logits, loss = model(x, y)  # (B, T, vocab_size)
         
@@ -152,7 +155,7 @@ def train(
         torch.cuda.synchronize()
         t1 = time.time()
         tokens_per_second = B * T / (t1 - t0)
-        if i % 10 == 0:
+        if i % 8 == 0:
             log_train_metrics(
                 model=model,
                 step=i,
@@ -162,10 +165,11 @@ def train(
                 lr=float(optimizer.param_groups[0]["lr"]),
                 shard_index=shard_index,
                 dataloader_val=dataloader_val,
+                val_batches=val_batches,
                 now_str=now_str,
             )
 
-        if i % 100 == 0:
+        if i % 128 == 0:
             log_sample_output(model, step=i, now_str=now_str)
 
         if i % 5000 == 0 and i > 0:
@@ -188,10 +192,10 @@ if __name__ == "__main__":
     model = GPT(GPTConfig())
     model.to("cuda")
     current_step = 0
-    max_steps = 200_000 + 1
-    start_lr = 5e-5
-    min_lr = 0.05 * start_lr
-    accumulation_steps = 5
+    max_steps = 300_000 + 1
+    start_lr = 2e-4
+    min_lr = 0.1 * start_lr
+    accumulation_steps = 32
 
     # use this to restart training from a specific spot
     prev_model_weights = "checkpoint_20250904_0642_step_140000.pth"
@@ -202,9 +206,8 @@ if __name__ == "__main__":
     )
 
     # linear warmup for the first 1000 steps, then cosine decay to min_lr
-    warmup_steps = 1000
     total_updates = math.ceil(max_steps / accumulation_steps)
-    warmup_steps = 1000
+    warmup_steps = 2000
     warmup_updates = math.ceil(warmup_steps / accumulation_steps)
 
     def lr_lambda(step: int):
@@ -231,6 +234,9 @@ if __name__ == "__main__":
     dataloader_train = DataLoader(B, T, split="train", shard_index=0)
     dataloader_val = DataLoader(B, T, split="val", shard_index=0)
 
+    # Preload fixed validation samples once
+    val_batches = [dataloader_val.next_batch() for _ in range(64)]  # 64 mini-batches
+
     model = torch.compile(model)
 
     train(
@@ -238,6 +244,7 @@ if __name__ == "__main__":
         model=model,
         dataloader_train=dataloader_train,
         dataloader_val=dataloader_val,
+        val_batches=val_batches,
         optimizer=optimizer,
         scheduler=scheduler,
         current_step=current_step,
