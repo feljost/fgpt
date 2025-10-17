@@ -1,3 +1,16 @@
+"""
+Simple DataLoader for large text datasets (FineWeb, FineWebEdu, OpenWebText, etc.).
+
+Instead of reading each shard in order (like Karpathy's GPT loader), this version
+picks random text chunks from random shards every batch. That helps avoid domain
+drift — where the model overfits to early shards and doesn't generalize well.
+Random sampling keeps training data more diverse and validation loss in line with 
+training loss. (This was actually a game changer in my experiments.)
+
+It also uses mmap and a small in-memory cache to speed things up. 
+For huge datasets (e.g. 100B tokens), caching won't help much since there are 
+hundreds of shards, but for smaller ones it can make a difference. 
+"""
 import os
 import numpy as np
 import random
