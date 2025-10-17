@@ -1,46 +1,48 @@
 import numpy as np
 import torch
-import tiktoken
 import os
-
+import random
 
 def load_tokens(file_path):
-    # Load tokens from a file and return as a tensor
     np_tokens = np.load(file_path)
-    pptokens = torch.tensor(np_tokens, dtype=torch.long)
-    return pptokens
-
+    return torch.tensor(np_tokens, dtype=torch.long)
 
 class DataLoader:
-    def __init__(self, B, T, split="train", shard_index=0):
-        # Note: does not work for multi-gpu training
+    def __init__(self, B, T, split="train"):
         self.B = B
         self.T = T
-        assert split in ["train", "val"], "split must be either 'train' or 'val'"
+        assert split in ["train", "val"], "split must be 'train' or 'val'"
 
         data_root = "edu_fineweb100B"
-        shards = os.listdir(data_root)
-        shards = [s for s in shards if s.startswith(f"edufineweb_{split}")]
-        self.shards = shards
+        all_files = os.listdir(data_root)
+        self.shards = [os.path.join(data_root, s) for s in all_files
+                       if s.startswith(f"edufineweb_{split}")]
+        assert len(self.shards) > 0, f"No shards found for split={split}"
 
-        self.current_shard_index = shard_index
-        assert self.current_shard_index < len(self.shards), "shard_index out of range"
-        self.tokens = load_tokens(
-            os.path.join(data_root, self.shards[self.current_shard_index])
-        )
-        self.current_position = self.B * self.T
-        self.current_position = 0
+        # Keep one shard loaded at a time to save memory
+        self.loaded_shards = {}
+        self.device = "cpu"  # adjust if you preload to GPU
+
+    def _get_tokens(self, shard_path):
+        # simple cache to avoid reloading every time
+        if shard_path not in self.loaded_shards:
+            self.loaded_shards[shard_path] = load_tokens(shard_path)
+        return self.loaded_shards[shard_path]
 
     def next_batch(self):
         B, T = self.B, self.T
-        buf = self.tokens[self.current_position : self.current_position + B * T + 1]
-        x = buf[:-1].view(B, T)  # inputs
-        y = buf[1:].view(B, T)  # labels
-        self.current_position += B * T
-        if self.current_position + (B * T + 1) > len(self.tokens):
-            self.current_position = B * T
-            self.current_shard_index += 1
-            if self.current_shard_index >= len(self.shards):
-                self.current_shard_index = 0
 
-        return x, y, self.current_shard_index
+        # Randomly pick a shard each call
+        shard_path = random.choice(self.shards)
+        tokens = self._get_tokens(shard_path)
+
+        # Randomly pick a start index
+        start = random.randint(0, len(tokens) - (B * T + 1))
+        buf = tokens[start : start + B * T + 1]
+
+        x = buf[:-1].view(B, T)
+        y = buf[1:].view(B, T)
+
+        # Return shard id for logging
+        shard_id = os.path.basename(shard_path)
+        return x, y, shard_id

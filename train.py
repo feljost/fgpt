@@ -19,8 +19,8 @@ from hellaswag import iterate_examples
 from hellaswag import render_example
 from hellaswag import get_most_likely_row
 
-now_str = datetime.now().strftime("%Y%m%d_%H%M")
-# now_str = "20250901_1702"
+# now_str = datetime.now().strftime("%Y%m%d_%H%M")
+now_str = "20251016_1458"
 
 
 def hellaswag_eval(model):
@@ -192,15 +192,15 @@ def train(
 if __name__ == "__main__":
     model = GPT(GPTConfig())
     model.to("cuda")
-    current_step = 0
+    current_step = 135_000
     max_steps = 300_000 + 1
-    start_lr = 2e-4
+    start_lr = 3e-4
     min_lr = 0.1 * start_lr
     accumulation_steps = 32
 
     # use this to restart training from a specific spot
-    prev_model_weights = "checkpoint_20250904_0642_step_140000.pth"
-    load_weights = False
+    prev_model_weights = "/home/ubuntu/fgpt-base/checkpoints/checkpoint_20251016_1458_step_135000.pth"
+    load_weights = True
 
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=start_lr, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.1
@@ -226,14 +226,15 @@ if __name__ == "__main__":
 
     if load_weights:
         checkpoint = torch.load(prev_model_weights, map_location="cuda")
-        model.load_state_dict(checkpoint["model_state_dict"])
+        new_state_dict = {k.replace("_orig_mod.", ""): v for k, v in checkpoint["model_state_dict"].items()}
+        model.load_state_dict(new_state_dict)
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
         current_step = checkpoint["step"] + 1
 
     torch.set_float32_matmul_precision("medium")
-    dataloader_train = DataLoader(B, T, split="train", shard_index=0)
-    dataloader_val = DataLoader(B, T, split="val", shard_index=0)
+    dataloader_train = DataLoader(B, T, split="train")
+    dataloader_val = DataLoader(B, T, split="val")
 
     # Preload fixed validation samples once
     val_batches = [dataloader_val.next_batch() for _ in range(64)]  # 64 mini-batches
