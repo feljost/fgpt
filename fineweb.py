@@ -31,9 +31,6 @@ fw = load_dataset("HuggingFaceFW/fineweb-edu", name=remote_name, split="train")
 fw = fw.shuffle(seed=shuffle_seed)  # shuffle dataset for better mix
 
 
-enc = tiktoken.get_encoding("gpt2")
-EOT = enc._special_tokens["<|endoftext|>"]
-
 
 def tokenize(doc):
     # returns np.uint16 token array for one document (with leading EOT)

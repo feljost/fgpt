@@ -6,12 +6,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-import tiktoken
 import json
 from datetime import datetime
 
-from model import GPT
-from model import GPTConfig
+from model import FGPT
+from model import FGPTConfig
 from model import B, T
 from data import DataLoader
 from inference import model_inference
@@ -190,7 +189,7 @@ def train(
 
 
 if __name__ == "__main__":
-    model = GPT(GPTConfig())
+    model = FGPT(FGPTConfig())
     model.to("cuda")
     current_step = 135_000
     max_steps = 300_000 + 1

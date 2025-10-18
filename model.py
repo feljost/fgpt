@@ -9,7 +9,7 @@ T = 1024  # sequence length / time
 
 
 @dataclass
-class GPTConfig:
+class FGPTConfig:
     block_size: int = 1024  # context size, how many tokens we can look back
     vocab_size: int = (
         50304  # GPT-2's vocab size 50257 --> set to power of 2 for faster cuda
@@ -81,7 +81,7 @@ class Block(nn.Module):
         return x
 
 
-class GPT(nn.Module):
+class FGPT(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
@@ -118,9 +118,9 @@ class GPT(nn.Module):
     def forward(self, idx, targets=None):
         # idx: (B, T) -> batch of token indices
         B, T = idx.size()
-        assert T <= self.config.block_size, (
-            f"Cannot forward sequence of length {T} > block size {self.config.block_size}"
-        )
+        assert (
+            T <= self.config.block_size
+        ), f"Cannot forward sequence of length {T} > block size {self.config.block_size}"
 
         pos = torch.arange(0, T, dtype=torch.long, device=idx.device)  # shape (T,)
         pos_emb = self.transformer.wpe(pos)  # (T, n_emberd) position embeddings
@@ -139,10 +139,47 @@ class GPT(nn.Module):
         return logits, loss
 
 
+# Utility functions:
+def load_model(
+    model_weights_path: str | None = None,
+    device: str = "cuda",
+    matmul_precision: str | None = "high",
+):
+    """Loads the GPT model with given weights onto the specified device.
+    Args:
+        model_weights_path (str | None): Path to the model weights file. If None,
+            initializes a new model.
+        device (str): Device to load the model onto ('cuda' or 'cpu').
+        matmul_precision (str | None): Precision for matrix multiplications.
+    Returns:
+        GPT: The loaded fgpt model.
+    """
+    model = FGPT(FGPTConfig())
+    model.to(device)
+
+    if model_weights_path is not None:
+        print("Loading model weights from:", model_weights_path)
+        checkpoint = torch.load(model_weights_path, map_location=device)
+        if "model_state_dict" in checkpoint:
+            new_state_dict = {
+                k.replace("_orig_mod.", ""): v
+                for k, v in checkpoint["model_state_dict"].items()
+            }
+        else:
+            new_state_dict = {
+                k.replace("_orig_mod.", ""): v for k, v in checkpoint.items()
+            }
+        model.load_state_dict(new_state_dict)
+    if matmul_precision is not None:
+        torch.set_float32_matmul_precision(matmul_precision)
+    print("Compiling model for inference")
+    model = torch.compile(model)
+    return model
+
+
 if __name__ == "__main__":
-    config = GPTConfig()
-    model = GPT(config)
+    config = FGPTConfig()
+    model = FGPT(config)
     num_params = sum(p.numel() for p in model.parameters())
-    print(f"Model: GPT")
     print(f"Number of parameters: {num_params:,}")
     print(f"Config: {config}")
