@@ -42,8 +42,9 @@ def model_inference(
     x = input_tokens.to("cuda")  # move to GPU
 
     # generate tokens
-
+    eos_token_id = special_tokens["<|endoftext|>"]
     for _ in range(max_tokens):
+        
         logits, loss = model(x)  # (B, T, vocab_size)
         logits = logits[
             :, -1, :
@@ -55,16 +56,12 @@ def model_inference(
         )  # sample from the distribution
         x = torch.cat((x, next_token), dim=1)  # append the new token to the sequence
 
+        if next_token.item() == eos_token_id:
+            break  # stop if EOS token is generated
+
     if generation_type == "conversational":
         # remove the input prompt tokens for conversational
         x = x[:, input_tokens.size(1):]
-
-        # remove everything after the eos token
-        eos_token_id = special_tokens["<|endoftext|>"]
-        eos_positions = (x == eos_token_id).nonzero(as_tuple=True)
-        if eos_positions[1].numel() > 0:
-            first_eos_pos = eos_positions[1][0].item()
-            x = x[:, :first_eos_pos]
 
     decoded_output = tokenizer.decode([token for token in x[0].tolist() if token <= 50258])
 
