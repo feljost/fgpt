@@ -22,6 +22,10 @@ The goal here isn’t to reach top performance but to help the model understand 
 
 After finetuning, the model generally gives short, more relevant answers and can handle simple 1-turn conversations.
 
+## Evaluation
+
+WIP WIP WIP
+
 ## Results
 
 The expected xent floor is around 3.2 - 3.8 according to ChatGPT. I made it to a around 3.5 training loss and 3.9 val loss. 
