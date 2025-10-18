@@ -37,11 +37,15 @@ model_weights_path = "/home/ubuntu/fgpt-base/model_weights_20251016_1458.pth"
 model = load_model(model_weights_path=model_weights_path, device="cuda")
 
 print("Pre-training inference test:")
-res = model_inference(model, "hello", generation_type='autocomplete', max_tokens=25)[1]
-print("Autocomplete response for 'hello':\n", res)
 
-res = model_inference(model, "hello", generation_type='conversational', max_tokens=25)[1]
-print("Conversational response for 'hello':\n", res)
+prompts = [
+    "What is the capital of France?",
+    "What is 2 + 2?",
+]
+for prompt in prompts:
+    res = model_inference(model, prompt, generation_type='autocomplete', max_tokens=25)[1]
+    print(f"Prompt: {prompt}\nResponse: {res}\n")
+
 
 
 batches_in_dataset = len(train_loader) // 16

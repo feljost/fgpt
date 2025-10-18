@@ -9,7 +9,8 @@ import os
 import hashlib
 import multiprocessing as mp
 import numpy as np
-import tiktoken
+from tokenizer import tokenizer
+from tokenizer import special_tokens
 from datasets import load_dataset
 from tqdm import tqdm
 import random
@@ -18,7 +19,7 @@ import random
 local_dir = "edu_fineweb100B"
 remote_name = "sample-100BT"
 shard_size = 100_000_000
-val_fraction = 0.10
+val_fraction = 0.05
 
 shuffle_seed = 42
 
@@ -34,8 +35,8 @@ fw = fw.shuffle(seed=shuffle_seed)  # shuffle dataset for better mix
 
 def tokenize(doc):
     # returns np.uint16 token array for one document (with leading EOT)
-    tokens = [EOT]
-    tokens.extend(enc.encode_ordinary(doc["text"]))
+    tokens = [special_tokens["<|endoftext|>"]]
+    tokens.extend(tokenizer.encode_ordinary(doc["text"]))
     tokens_np = np.array(tokens, dtype=np.int32)
     assert (0 <= tokens_np).all() and (tokens_np < 2**16).all(), "uint16 overflow"
     return tokens_np.astype(np.uint16, copy=False)
