@@ -32,7 +32,6 @@ fw = load_dataset("HuggingFaceFW/fineweb-edu", name=remote_name, split="train")
 fw = fw.shuffle(seed=shuffle_seed)  # shuffle dataset for better mix
 
 
-
 def tokenize(doc):
     # returns np.uint16 token array for one document (with leading EOT)
     tokens = [special_tokens["<|endoftext|>"]]

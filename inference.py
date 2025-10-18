@@ -7,13 +7,14 @@ from model import FGPT
 from model import FGPTConfig
 from model import load_model
 
+
 def model_inference(
     model: FGPT,
-    prompt:str ="Hello",
+    prompt: str = "Hello",
     tokenizer=tokenizer,
     max_tokens=50,
     generation_type: Literal["autocomplete", "conversational"] = "autocomplete",
-    ):
+):
     """Generates text from the given model and prompt.
     Args:
         model: The FGPT model for inference.
@@ -25,7 +26,7 @@ def model_inference(
         generated_tokens (tensor): The generated token IDs.
         generated_text (str): The generated text.
     """
-  
+
     if generation_type == "conversational":
         # For conversational, we can add special tokens if needed
         input_tokens = []
@@ -36,15 +37,16 @@ def model_inference(
         input_tokens = tokenizer.encode(prompt)  # encode a prompt
     else:
         raise ValueError(f"Unknown generation type: {generation_type}")
-    
+
     # add batch dimension and move to GPU
-    input_tokens = torch.tensor(input_tokens, dtype=torch.long, device="cuda").unsqueeze(0)
+    input_tokens = torch.tensor(
+        input_tokens, dtype=torch.long, device="cuda"
+    ).unsqueeze(0)
     x = input_tokens.to("cuda")  # move to GPU
 
     # generate tokens
     eos_token_id = special_tokens["<|endoftext|>"]
     for _ in range(max_tokens):
-        
         logits, loss = model(x)  # (B, T, vocab_size)
         logits = logits[
             :, -1, :
@@ -61,11 +63,14 @@ def model_inference(
 
     if generation_type == "conversational":
         # remove the input prompt tokens for conversational
-        x = x[:, input_tokens.size(1):]
+        x = x[:, input_tokens.size(1) :]
 
-    decoded_output = tokenizer.decode([token for token in x[0].tolist() if token <= 50258])
+    decoded_output = tokenizer.decode(
+        [token for token in x[0].tolist() if token <= 50258]
+    )
 
     return x, " ".join(decoded_output.split())  # decode the output
+
 
 if __name__ == "__main__":
     model_weights_path = "/home/ubuntu/fgpt-base/model_weights_20251016_1458.pth"

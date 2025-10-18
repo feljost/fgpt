@@ -118,9 +118,9 @@ class FGPT(nn.Module):
     def forward(self, idx, targets=None):
         # idx: (B, T) -> batch of token indices
         B, T = idx.size()
-        assert (
-            T <= self.config.block_size
-        ), f"Cannot forward sequence of length {T} > block size {self.config.block_size}"
+        assert T <= self.config.block_size, (
+            f"Cannot forward sequence of length {T} > block size {self.config.block_size}"
+        )
 
         pos = torch.arange(0, T, dtype=torch.long, device=idx.device)  # shape (T,)
         pos_emb = self.transformer.wpe(pos)  # (T, n_emberd) position embeddings

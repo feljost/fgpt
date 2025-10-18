@@ -118,7 +118,7 @@ python instruct.py
 # TO DO's
 - Performance Tweaks
     - Instruction Finetuning DataLoader
-    - Fineweb-Edu Download
+    - Fineweb-Edu Download (currently takes multiple hours)
     - Switch to FlashAttention for faster training
     - Switch to Muon Optimizer
 - More stable and 

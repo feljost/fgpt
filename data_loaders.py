@@ -22,6 +22,7 @@ from tokenizer import special_tokens
 
 class BaseDataLoader:
     """Data Loader for large text datasets stored in .npy files as token ids."""
+
     def __init__(self, B, T, split="train"):
         self.B = B
         self.T = T
@@ -72,11 +73,11 @@ class InstructDataLoader:
         self.B = B
         self.max_T = max_T
         self.tokenizer = tokenizer
-        
+
         self.encoded_texts = []
         for entry in data:
             # Apply phi-3 style formatting
-            
+
             # input text = prompt + '<|assistant|>'
             tokens = self.format_encode_input(entry)
             # output text = response
@@ -104,7 +105,9 @@ class InstructDataLoader:
             return x_batch, y_batch, None
 
         idx = getattr(self, "_iter_idx", 0)
-        batch_data = [enc[: self.max_T] for enc in self.encoded_texts[idx : idx + self.B]]
+        batch_data = [
+            enc[: self.max_T] for enc in self.encoded_texts[idx : idx + self.B]
+        ]
 
         self._iter_idx = idx + self.B
         if self._iter_idx >= n:
@@ -163,7 +166,7 @@ class InstructDataLoader:
         # Find the longest sequence in the batch
         # and increase the max length by +1, which will add one extra
         # padding token below
-        batch_max_length = max([len(item) + 1 for item in batch]) 
+        batch_max_length = max([len(item) + 1 for item in batch])
 
         # Pad and prepare inputs
         inputs_batched = []
@@ -194,11 +197,10 @@ class InstructDataLoader:
         targets_tensor = torch.stack(targets_batched).to("cuda")
 
         return inputs_tensor, targets_tensor
-    
+
     def format_encode_input(self, entry):
-        """Turns the given text input into Phi style encoded inpuit.
-        """
-        
+        """Turns the given text input into Phi style encoded inpuit."""
+
         tokens = []
         tokens += [special_tokens["<|user|>"]]
         tokens += self.tokenizer.encode(entry["instruction"])
