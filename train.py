@@ -170,7 +170,7 @@ def train(
                 now_str=now_str,
             )
 
-        if i % 128 == 0:
+        if i % 256 == 0:
             log_sample_output(model, step=i, now_str=now_str)
 
         if i % 5000 == 0 and i > 0:
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     max_steps = 300_000 + 1
     start_lr = 3e-4
     min_lr = 0.1 * start_lr
-    accumulation_steps = 32
+    accumulation_steps = 16
 
     # use this to restart training from a specific spot
     prev_model_weights = "/home/ubuntu/fgpt-base/checkpoints/checkpoint_20251016_1458_step_135000.pth"
