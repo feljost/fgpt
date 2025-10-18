@@ -12,14 +12,14 @@ from datetime import datetime
 from model import FGPT
 from model import FGPTConfig
 from model import B, T
-from data import DataLoader
+from data_loader import BaseDataLoader
 from inference import model_inference
 from hellaswag import iterate_examples
 from hellaswag import render_example
 from hellaswag import get_most_likely_row
 
-# now_str = datetime.now().strftime("%Y%m%d_%H%M")
-now_str = "20251016_1458"
+now_str = datetime.now().strftime("%Y%m%d_%H%M")
+# now_str = "20251016_1458"
 
 
 def hellaswag_eval(model):
@@ -60,7 +60,7 @@ def log_train_metrics(
     now_str=now_str,
 ):
     print(
-        f"Step: {step} | Loss: {loss:.4f} | norm {norm:.4f} | t/s: {tokens_per_second:.2f} | lr {optimizer.param_groups[0]['lr']} | shard: {shard_index}"
+        f"Step: {step} | Loss: {loss:.4f} | norm {norm:.2f} | t/s: {tokens_per_second:.0f} | lr {optimizer.param_groups[0]['lr']:.7f}"
     )
 
     metrics = {
@@ -151,7 +151,7 @@ def train(
         torch.cuda.synchronize()
         t1 = time.time()
         tokens_per_second = B * T / (t1 - t0)
-        if i % 8 == 0:
+        if i % (accumulation_steps / 2) == 0:
             log_train_metrics(
                 model=model,
                 step=i,
@@ -165,7 +165,7 @@ def train(
                 now_str=now_str,
             )
 
-        if i % 256 == 0:
+        if i % 512 == 0:
             log_sample_output(model, step=i, now_str=now_str)
 
         if i % 5000 == 0 and i > 0:
@@ -179,7 +179,7 @@ def train(
             }
             torch.save(checkpoint, f"checkpoints/checkpoint_{now_str}_step_{i}.pth")
             print(f"Model weights saved at step {i}.")
-
+    
     print("Training complete.")
     torch.save(model.state_dict(), f"model_weights_{now_str}.pth")
 
@@ -187,17 +187,18 @@ def train(
 if __name__ == "__main__":
     model = FGPT(FGPTConfig())
     model.to("cuda")
-    current_step = 135_000
+    accumulation_steps = 16
+    current_step = 0
     max_steps = 300_000 + 1
     start_lr = 3e-4
     min_lr = 0.1 * start_lr
-    accumulation_steps = 16
+    
 
     # use this to restart training from a specific spot
     prev_model_weights = (
         "/home/ubuntu/fgpt-base/checkpoints/checkpoint_20251016_1458_step_135000.pth"
     )
-    load_weights = True
+    load_weights = False
 
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=start_lr, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.1
@@ -205,7 +206,7 @@ if __name__ == "__main__":
 
     # linear warmup for the first 1000 steps, then cosine decay to min_lr
     total_updates = math.ceil(max_steps / accumulation_steps)
-    warmup_steps = 2000
+    warmup_steps = max_steps * 0.02
     warmup_updates = math.ceil(warmup_steps / accumulation_steps)
 
     def lr_lambda(step: int):
@@ -235,8 +236,8 @@ if __name__ == "__main__":
         current_step = checkpoint["step"] + 1
 
     torch.set_float32_matmul_precision("medium")
-    dataloader_train = DataLoader(B, T, split="train")
-    dataloader_val = DataLoader(B, T, split="val")
+    dataloader_train = BaseDataLoader(B, T, split="train")
+    dataloader_val = BaseDataLoader(B, T, split="val")
 
     # Preload fixed validation samples once
     val_batches = [dataloader_val.next_batch() for _ in range(64)]  # 64 mini-batches

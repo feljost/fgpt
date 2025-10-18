@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from tokenizer import tokenizer
 from tokenizer import special_tokens
-from data_loaders import InstructDataLoader
+from data_loader import InstructDataLoader
 from inference import load_model, model_inference
 from tokenizer import tokenizer
 
