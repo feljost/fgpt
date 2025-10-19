@@ -6,6 +6,7 @@ want document overlap in between train and validation sets.
 """
 
 import os
+from pathlib import Path
 import hashlib
 import multiprocessing as mp
 import numpy as np
@@ -23,7 +24,10 @@ val_fraction = 0.05
 
 shuffle_seed = 42
 
-DATA_CACHE_DIR = os.path.join(os.path.dirname(__file__), local_dir)
+# save to fgpt/<local_dir>
+project_root_dir = Path(__file__).resolve().parents[3]
+DATA_CACHE_DIR = project_root / local_dir
+
 os.makedirs(DATA_CACHE_DIR, exist_ok=True)
 
 fw = load_dataset("HuggingFaceFW/fineweb-edu", name=remote_name, split="train")

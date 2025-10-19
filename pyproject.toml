@@ -1,0 +1,17 @@
+[project]
+name = "fgpt"
+version = "0.1.0"
+description = "700M Conversational LLM trained from scratch"
+readme = "README.md"
+requires-python = ">=3.10"
+
+
+dependencies = [
+    "torch>=2.7.0",  # ensure correct cuda version
+    "datasets>=4.2.0",
+    "numpy>=1.21.5",
+    "tiktoken>=0.12.0",
+    "tqdm>=4.67.1",
+    "matplotlib>=3.5.1",
+    "pandas>=1.3.5",
+]
