@@ -28,13 +28,13 @@ WIP WIP WIP
 
 ## Results
 
-For the base model I achieve ~3 cross entropy nats on the validation set, which is a good result and about what we can expect without many advanced tweaks. As we are only training on english educational content, our dataset is fairly homogenous compared to multilanguage datasets. If we were to train on something like FineWeb-Edu2 (the multilingual version) or OpenWebText, we would expect a higher loss.
+For the base model I achieve ~2.9 cross entropy nats on the validation set, which is a good result and about what we can expect without many advanced tweaks. As we are only training on english educational content, our dataset is fairly homogenous compared to multilanguage datasets. If we were to train on something like FineWeb-Edu2 (the multilingual version) or OpenWebText, we would expect a higher loss.
 
 We do not observe any signs of overfitting or other instabilities. In fact, we could probably even train a bit longer if we want to adhere by the Chinchilla Scaling Law.
 
 ![Loss Curves](/report/images/train-loss.png)
 
-Every 10k steps I also evaluate the HellaSwag accuracy of the base model, which takes the logits of all responses (given the input) and evaluates which one is the most likely. We get a 31% accuracy which is significantly better than random guessing (=25%). Instruction finetuned version will follow.
+Every 10k steps I also evaluate the HellaSwag accuracy of the base model, which takes the logits of all responses (given the input) and evaluates which one is the most likely. We get a 33% accuracy which is significantly better than random guessing (=25%). Instruction finetuned version will follow.
 
 ![HellaSwag Base Model](/report/images/hellaswag-base.png)
 
@@ -49,7 +49,7 @@ The table below shows how the sample outputs evolved with the steps of training.
 | 0    | _Once upon a time_ reproduction allegiance Freeze crises COVER Face database tet psychoticSET178 brothersyt distinctions UNITED endorserickyregooeval medicineOHN Boll UN Supporteditching pinch insol\u30c4 Regist packing engineered circumst go Tunnel PCs Lydia genre 40ho Magickabasic bullies Dharmahar-.PART TCU Civilusions |
 | 100'000 | _Once upon a time_, they enjoyed walking through a nearby lane of spooky video star terrible death in a sea-boat that collided with their boat, leaving the seas unharmed and dieling all of humour. Lucie and her crew traveled across this encounter and David |
 | 200'000 | _Once upon a time_, the earth was just as white as any rainbow in the sky, but the now white ice had begun to melt and lose its colors. When you think about freezing with ice – the shlatth grade it with the ice seems to me much colder |
-| 300'000  | ... |
+| 300'000  | _Once upon a time_ they pounded God. And she sang of fame fixed in Jew’s heart. Why should she have turned aside while she was willing to soar for her man? For she was not freed from her own man. |
 
 #### Instruction Finetuned Model
 
