@@ -131,7 +131,7 @@ class InstructDataLoader:
         """
         This function creates the batches for training.
         It takes the batch as an input, then adds a padding / eos token at the end, and
-        fills the rest with the ingore_token_id.
+        fills the rest with the ignore_token_id.
 
         args:
             batch: list of lists, where each sublist is a sequence of token ids

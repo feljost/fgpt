@@ -42,18 +42,18 @@ Every 10k steps I also evaluate the HellaSwag accuracy of the base model, which 
 
 #### Base Model
 
-The table below shows how the sample outputs evolved with the steps of training. You can see that the model learns rough grammar and does not mix up tokens that don't go together (for the most part). It also starts to stick to semantic topics better. The input text is "Once upon a time", after which the model generates the rest.
+The table below shows how the sample outputs evolved with the steps of training. You can see that the model learns rough grammar and does not mix up tokens that don't go together (for the most part). It also starts to stick to semantic topics better. The input text is "Once upon a time" after which the model generates the rest.
 
 | Step | Output |
 |------|--------|
-| 0    | Once upon a timebattle RM steroids AgainFootballgments mobile manifests Krishna Lynnscroll Ey Residents MongoShe subconscious the reports braceograp Soft toxinsHuh Finch SPR Stonerid Bos Psyyles Provider ca realizes shelters numberingshock dissentduction dreadfuladminist arrangement Happy chickens midfielder blurryChurch sensibilitiesMenu Charity shack |
-| 10'000    | Once upon a time are then lying actually at rest. The Copenhagenosphere movement was then out of Telespace yet, by the indicator its kinds were moving in very tall days, awaiting unfolding success. In the twentieth century, many of the most famousties of the Saturn |
-| 20'000    | Once upon a time, and the development of ability will be immensely important to existing technologies and technologies across the representing lab functions. The Institutional Review of Physics, Volume 99, No. 2 above, presented the teeth to Sc Removal Process as a matter of a coordinated |
-| 30'000    | Once upon a time. Explain and answer questions using these questions carefully during class time. PRATECHICAL guest story: prepare the right job of a episodes to ensure your students will work smoothly. If you are working on a line, small or large, or |
+| 0    | _Once upon a time_ reproduction allegiance Freeze crises COVER Face database tet psychoticSET178 brothersyt distinctions UNITED endorserickyregooeval medicineOHN Boll UN Supporteditching pinch insol\u30c4 Regist packing engineered circumst go Tunnel PCs Lydia genre 40ho Magickabasic bullies Dharmahar-.PART TCU Civilusions |
+| 100'000 | _Once upon a time_, they enjoyed walking through a nearby lane of spooky video star terrible death in a sea-boat that collided with their boat, leaving the seas unharmed and dieling all of humour. Lucie and her crew traveled across this encounter and David |
+| 200'000 | _Once upon a time_, the earth was just as white as any rainbow in the sky, but the now white ice had begun to melt and lose its colors. When you think about freezing with ice – the shlatth grade it with the ice seems to me much colder |
+| 300'000  | ... |
 
 #### Instruction Finetuned Model
 
-Pre finetuning the model has no understanding of question-awnsering or assistant style conversation. The autocomplete outputs look like this:
+Pre finetuning the model has no understanding of question-answering or assistant style conversation. The autocomplete outputs look like this:
 
 | Prompt | Output |
 |--------|--------|
@@ -81,16 +81,23 @@ You will need a strong GPU with cuda to run these scripts. If you don't have one
 Install dependencies with:
 
 ```sh
-pip install numpy tiktoken datasets tqdm torch matplotlib pandas
+pip install -e .
 ```
 
+Depending on your version of CUDA, you might have to specify a specific torch version (see [pytorch.org](https://pytorch.org/)).
 
-### FineWeb-Edu Data Preparation
+### Data Downloads
 
-Run `fineweb.py` to download and tokenize the FineWeb-Edu dataset. Sharded data will be saved to the `edu_fineweb100B` directory for use in LLM training.
+Run `fineweb_download.py` to download and tokenize the [FineWeb-Edu dataset](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu). Sharded data will be saved to the `edu_fineweb100B` directory for use in LLM training.
 
 ```sh
-python fineweb.py
+python fgpt.data.fineweb_download.py
+```
+
+You can download the (untokenized) [OpenAssistant Conversations Dataset (OASST1)](https://huggingface.co/datasets/OpenAssistant/oasst1) by running `oasst_download.py`.
+
+```sh
+python fgpt.data.oasst_download.py
 ```
 
 ### Base Model Training Loop
@@ -103,19 +110,24 @@ The base training file does the following:
 - Saves checkpoints every 5000 steps.
 
 ```sh
-python base_train.py
+python fgpt.base_train.py
 ```
+
+Before starting the training, you may want to adjust some of the model and training parameters in 
+`model.py` and `base_train.py`, depending on your available compute and time commitment.
+
+Please note that the training will only happen one 1 GPU at a time. You will need to adjust training loop if you want to do multi-GPU training.
 
 ### Instruction Finetuning Training Loop
 
-The instruction finetuning loosly follows rasbt's Chapter 7:
+The instruction finetuning loosely follows rasbt's Chapter 7:
 - Turns the instruct_data.json into Phi-3 style prompts for training
 - Generates some example outputs pre finetuning 
 - Finetunes the model and saves new model weights
 - Generates some final example outputs post finetuning
 
 ```sh
-python instruct.py
+python fgpt.instruct_train.py
 ```
 
 
