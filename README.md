@@ -17,7 +17,7 @@ After the base model is trained, it is fine-tuned on a small instruction dataset
 The goal here isn’t to reach top performance but to help the model understand short question-answer patterns and simple user instructions.
 
 ```
-<|user|> What is the capital of France? <|assistant|>
+<|user|>What is the capital of France?<|assistant|>The capital of France is Paris<|endoftext|>
 ```
 
 After finetuning, the model generally gives short, more relevant answers and can handle simple 1-turn conversations.
