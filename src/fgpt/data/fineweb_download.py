@@ -1,6 +1,6 @@
 """
 This fineweb dataset loader is different to Karpathy's implementation
-by it taking each document of the dataset and assigning ttrainc / val
+by it taking each document of the dataset and assigning train / val
 split on document level and not on shard level. This is because we don't
 want document overlap in between train and validation sets.
 """
