@@ -8,18 +8,22 @@ import torch.nn as nn
 from torch.nn import functional as F
 import json
 from datetime import datetime
+from pathlib import Path
 
 from model import FGPT
 from model import FGPTConfig
 from model import B, T
-from data_loader import BaseDataLoader
-from inference import model_inference
-from hellaswag import iterate_examples
-from hellaswag import render_example
-from hellaswag import get_most_likely_row
+from fgpt.data.loaders import BaseDataLoader
+from fgpt.inference import model_inference
+from fgpt.eval.hellaswag import iterate_examples
+from fgpt.eval.hellaswag import render_example
+from fgpt.eval.hellaswag import get_most_likely_row
 
 now_str = datetime.now().strftime("%Y%m%d_%H%M")
 # now_str = "20251016_1458"
+
+checkpoints_dir = Path(__file__).resolve().parents[2] / "checkpoints"
+logs_dir = Path(__file__).resolve().parents[2] / "logs"
 
 
 def hellaswag_eval(model):
@@ -79,7 +83,7 @@ def log_train_metrics(
     if step % 10_000 == 0 and step > 1:
         metrics["hellaswag_acc"] = hellaswag_eval(model)
 
-    with open(f"logs/train_metrics_{now_str}.jsonl", "a") as f:
+    with open(f"{logs_dir}/train_metrics_{now_str}.jsonl", "a") as f:
         f.write(json.dumps(metrics) + "\n")
 
 
@@ -93,7 +97,7 @@ def log_sample_output(model, step, now_str=now_str):
         "step": step,
         "decoded_output": decoded_output,
     }
-    with open(f"logs/sample_outputs_{now_str}.jsonl", "a") as f:
+    with open(f"{logs_dir}/sample_outputs_{now_str}.jsonl", "a") as f:
         f.write(json.dumps(sample) + "\n")
 
 
@@ -177,7 +181,7 @@ def train(
                 "step": i,
                 "loss": loss.item(),
             }
-            torch.save(checkpoint, f"checkpoints/checkpoint_{now_str}_step_{i}.pth")
+            torch.save(checkpoint, f"{checkpoints_dir}/checkpoint_{now_str}_step_{i}.pth")
             print(f"Model weights saved at step {i}.")
     
     print("Training complete.")
