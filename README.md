@@ -52,14 +52,14 @@ The table below shows how the sample outputs evolved with the steps of training.
 Pre finetuning the model has no understanding of question-awnsering or assistant style conversation. The autocomplete outputs look like this:
 
 | Prompt | Output |
-|------|--------|
+|--------|--------|
 | What is the capital of France? |  - Fact 1: Even France has a capital. - Fact 2: the9 city and boroughs are in ... |
 | hello | 2 + 2 = negative (a) How do we get three chords to produce the Allegro in the key of ... |
 
 After finetuning the outputs are actually not too bad:
 
 | Prompt | Output |
-|------|--------|
+|--------|--------|
 | What is the capital of France? | The capital of France is Paris |
 | What is 2 + 2? | 2 - 2 = 4 |
 | Define 'cat'. | Cat is a cat, but how big is a cat? |
@@ -121,7 +121,7 @@ python instruct.py
     - Fineweb-Edu Download (currently takes multiple hours)
     - Switch to FlashAttention for faster training
     - Switch to Muon Optimizer
-- More stable and 
-- Upload model to HuggingFace and deploy in Space
+- Train on much more tokens to abide by Chinchilla Scaling Law
+- Upload model to HuggingFace and deploy in HF-spaces
 - Better visualize and document instruction finetunung
 - Preference-optimizitaion (DPO or other easy to implement approach)
