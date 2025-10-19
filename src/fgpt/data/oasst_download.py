@@ -60,13 +60,13 @@ filtered_pairs = pairs[pairs["total_tokens"] <= max_token_length].reset_index(dr
 print(f"Kept {len(filtered_pairs)} of {len(pairs)} pairs (<= {max_token_length} tokens).")
 
 
-for i in range(pairs.shape[0]):
-    instr = pairs.loc[i, 'instruction']
-    resp = pairs.loc[i, 'output']
+for i in range(filtered_pairs.shape[0]):
+    instr = filtered_pairs.loc[i, 'instruction']
+    resp = filtered_pairs.loc[i, 'output']
     for key in special_tokens.keys():
         if key in instr or key in resp:
             print(f"Found special {key} token in row {i}; dropping it.")
-            pairs.drop(i, inplace=True)
+            filtered_pairs.drop(i, inplace=True)
 
 
-pairs.to_json(filepath, orient="records", lines=False)
+filtered_pairs.to_json(filepath, orient="records", lines=False)
