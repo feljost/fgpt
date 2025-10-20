@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 dataset_name = "OpenAssistant/oasst1"
 
-max_token_length = 900 # some buffer for our 1024 token context window
+max_token_length = 300 # our model isn't good enough for long responses
 project_root_dir = Path(__file__).resolve().parents[3] / "instruction_data"
 filename = "oasst1_en_instruction_response_pairs.json"
 filepath = project_root_dir / filename

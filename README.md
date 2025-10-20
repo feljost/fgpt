@@ -32,7 +32,7 @@ For the base model I achieve ~2.9 cross entropy nats on the validation set, whic
 
 ![Loss Curves](/report/images/train-loss.png)
 
-Every 10k steps I also evaluate the HellaSwag accuracy of the base model, which takes the logits of all responses (given the input) and evaluates which one is the most likely. We get a 33% accuracy which is significantly better than random guessing (=25%). Instruction finetuned version will follow.
+Every 10k steps I also evaluate the HellaSwag accuracy of the base model, which takes the logits of all responses (given the input) and evaluates which one is the most likely. The model scores 33% which is significantly better than random guessing (=25%). Instruction finetuned version will follow.
 
 ![HellaSwag Base Model](/report/images/hellaswag-base.png)
 

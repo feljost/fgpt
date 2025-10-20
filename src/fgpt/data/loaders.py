@@ -16,8 +16,8 @@ import os
 import numpy as np
 import random
 import torch
-from tokenizer import tokenizer
-from tokenizer import special_tokens
+from fgpt.tokenizer import tokenizer
+from fgpt.tokenizer import special_tokens
 
 
 class BaseDataLoader:
