@@ -17,16 +17,17 @@ log_dir = Path(__file__).resolve().parents[2] / "logs"
 filename_oasst = "oasst1_en_instruction_response_pairs.json"
 filename_rasbt = "rasbt_instruction_data.json"
 filename_smoltalk = "smoltalk_instruction_response_pairs.json"
+filename_simple = "simple_instruction_data.json"
 data_dir = Path(__file__).resolve().parents[2] / "instruction_data" 
 
-with open(data_dir / filename_oasst, "r", encoding="utf-8") as f:
+with open(data_dir / filename_simple, "r", encoding="utf-8") as f:
     data = json.load(f)
 
-with open(data_dir / filename_rasbt, "r", encoding="utf-8") as f:
-    data += json.load(f)
+# with open(data_dir / filename_rasbt, "r", encoding="utf-8") as f:
+#     data += json.load(f)
 
-with open(data_dir / filename_smoltalk, "r", encoding="utf-8") as f:
-    data += json.load(f)
+# with open(data_dir / filename_smoltalk, "r", encoding="utf-8") as f:
+#     data += json.load(f)
 
 print(f"Data loaded with {len(data)} entries")
 
@@ -64,7 +65,7 @@ for prompt in prompts:
 batches_in_dataset = len(train_loader) // 16
 epochs = 2
 steps = batches_in_dataset * epochs
-lr = 1e-7  # small LR for finetuning
+lr = 1e-5  # small LR for finetuning
 
 optimizer = torch.optim.AdamW(
     model.parameters(), lr=lr, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.1
@@ -101,7 +102,7 @@ for i in range(steps):
     torch.cuda.synchronize()
     end_time = time()
 
-    if i % 16 == 0:
+    if i % 4 == 0:
         # calculate validation loss every 16 steps
         model.eval()
         loss_vals = []
@@ -121,7 +122,7 @@ for i in range(steps):
             "val_loss": val_loss_avg,
             "lr": lr,
         }
-        with open(f"{log_dir}/training_log.jsonl", "a", encoding="utf-8") as jf:
+        with open(f"{log_dir}/instruct_training_metrics.jsonl", "a", encoding="utf-8") as jf:
             jf.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
         print(f"{val_loss_avg} validation loss at step {i}")
 
@@ -145,6 +146,10 @@ testing_prompts = [
     "Define 'cat'.",
     "What color is the sky?",
     "Translate 'hello' to Spanish.",
+    "Where is the White House located?",
+    "Who wrote 'Romeo and Juliet'?",
+    "What is the boiling point of water?",
+    "Summarize the plot of '1984' by George Orwell.",
 ]
 
 for i, prompt in enumerate(testing_prompts):
