@@ -56,7 +56,7 @@ Pre finetuning the model has no understanding of question-answering or assistant
 | Prompt | Output |
 |--------|--------|
 | What is the capital of France? |  - Fact 1: Even France has a capital. - Fact 2: the9 city and boroughs are in ... |
-| hello | 2 + 2 = negative (a) How do we get three chords to produce the Allegro in the key of ... |
+| What is 2 + 2 | 2 + 2 = negative (a) How do we get three chords to produce the Allegro in the key of ... |
 
 After finetuning the outputs are actually not too bad:
 
@@ -64,7 +64,9 @@ After finetuning the outputs are actually not too bad:
 |--------|--------|
 | What is the capital of France? | The capital of France is Paris |
 | What is 2 + 2? | 2 - 2 = 4 |
-| Define 'cat'. | Cat is a cat, but how big is a cat? |
+| Define 'cat'. | A cat is a furry brute. |
+| Say hello. | I welcome you. |
+| Where is the White House located? | The White House is located in Cambridge, Massachusetts. |
 
 There is still a lot of room for improvement, but the model generally is able to create proper answers and follow a 1-turn conversation.
 
