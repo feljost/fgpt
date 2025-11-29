@@ -52,6 +52,7 @@ def log_train_metrics(
     loss: float,
     norm: float,
     tokens_per_second: float,
+    seconds_per_step: float,
     lr: float,
     shard_index: int,
     dataloader_val,
@@ -59,7 +60,9 @@ def log_train_metrics(
     now_str=now_str,
 ):
     print(
-        f"Step: {step} | Loss: {loss:.4f} | norm {norm:.2f} | t/s: {tokens_per_second:.0f} | lr {optimizer.param_groups[0]['lr']:.7f}"
+        f"Step: {step} | Loss: {loss:.4f} | norm {norm:.2f} | "
+        f"tok/s: {tokens_per_second:.0f} | lr {optimizer.param_groups[0]['lr']:.7f} | "
+        f"s/step: {seconds_per_step:.2f} |"
     )
 
     metrics = {
@@ -150,6 +153,8 @@ def train(
         torch.cuda.synchronize()
         t1 = time.time()
         tokens_per_second = B * T / (t1 - t0)
+        second_per_step = t1 - t0
+
         if i % (accumulation_steps / 2) == 0:
             log_train_metrics(
                 model=model,
@@ -157,6 +162,7 @@ def train(
                 loss=loss_value,
                 norm=norm_val,
                 tokens_per_second=tokens_per_second,
+                seconds_per_step=second_per_step,
                 lr=float(optimizer.param_groups[0]["lr"]),
                 shard_index=shard_index,
                 dataloader_val=dataloader_val,
@@ -188,7 +194,7 @@ if __name__ == "__main__":
     model.to("cuda")
     accumulation_steps = 16
     current_step = 0
-    max_steps = 300_000 + 1
+    max_steps = 500_000 + 1
     start_lr = 3e-4
     min_lr = 0.1 * start_lr
     

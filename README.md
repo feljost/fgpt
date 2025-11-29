@@ -70,8 +70,6 @@ After finetuning the outputs are actually not too bad:
 
 There is still a lot of room for improvement, but the model generally is able to create proper answers and follow a 1-turn conversation.
 
-## Future To Do's
-
 ## Usage
 
 You will need a strong GPU with cuda to run these scripts. If you don't have one locally, I suggest getting one in the cloud (I used lambda labs).
@@ -134,10 +132,11 @@ python fgpt.instruct_train.py
 # TO DO's
 - Performance Tweaks
     - Instruction Finetuning DataLoader
+    - ~Base model DataLoader~
     - Fineweb-Edu Download (currently takes multiple hours)
-    - Switch to FlashAttention for faster training
+    - ~Switch to FlashAttention for faster training~
     - Switch to Muon Optimizer
 - Train on much more tokens to abide by Chinchilla Scaling Law
 - Upload model to HuggingFace and deploy in HF-spaces
-- Better visualize and document instruction finetunung
+- Document instruction finetunung
 - Preference-optimizitaion (DPO or other easy to implement approach)
