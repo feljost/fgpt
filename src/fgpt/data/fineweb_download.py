@@ -7,7 +7,6 @@ want document overlap in between train and validation sets.
 
 import os
 from pathlib import Path
-import hashlib
 import multiprocessing as mp
 import numpy as np
 from fgpt.tokenizer import tokenizer

@@ -1,15 +1,10 @@
 from time import time
 from pathlib import Path
 import json
-import random
 import torch
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
 from tokenizer import tokenizer
-from tokenizer import special_tokens
 from fgpt.data.loaders import InstructDataLoader
 from fgpt.inference import load_model, model_inference
-from fgpt.tokenizer import tokenizer
 
 
 log_dir = Path(__file__).resolve().parents[2] / "logs" 
@@ -74,7 +69,7 @@ optimizer = torch.optim.AdamW(
 print(
     f"Training Config\nLR: {lr}\nEpochs: {epochs}\nBatches per epoch: {batches_in_dataset}\nTotal steps: {steps}"
 )
-print(f"Starting training")
+print("Starting training")
 model.train()
 
 accumulation_steps = 4  # simulate larger batch size
@@ -133,7 +128,7 @@ for i in range(steps):
 
 
 print("Training complete.")
-torch.save(model.state_dict(), f"model_weights_instruct.pth")
+torch.save(model.state_dict(), "model_weights_instruct.pth")
 
 
 print("Post-training inference test:")
