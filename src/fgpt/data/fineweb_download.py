@@ -10,8 +10,8 @@ from pathlib import Path
 import hashlib
 import multiprocessing as mp
 import numpy as np
-from tokenizer import tokenizer
-from tokenizer import special_tokens
+from fgpt.tokenizer import tokenizer
+from fgpt.tokenizer import special_tokens
 from datasets import load_dataset
 from tqdm import tqdm
 import random
@@ -26,7 +26,7 @@ shuffle_seed = 42
 
 # save to fgpt/<local_dir>
 project_root_dir = Path(__file__).resolve().parents[3]
-DATA_CACHE_DIR = project_root / local_dir
+DATA_CACHE_DIR = project_root_dir / local_dir
 
 os.makedirs(DATA_CACHE_DIR, exist_ok=True)
 
