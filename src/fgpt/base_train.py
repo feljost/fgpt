@@ -54,7 +54,6 @@ def log_train_metrics(
     tokens_per_second: float,
     seconds_per_step: float,
     lr: float,
-    shard_index: int,
     dataloader_val,
     val_batches,
     now_str=now_str,
@@ -73,7 +72,6 @@ def log_train_metrics(
         "norm": float(norm),
         "tokens_per_second": float(tokens_per_second),
         "lr": lr,
-        "shard_index": shard_index,
     }
     if step % 128 == 0:
         metrics["val_loss"] = calculate_val_loss(model, val_batches)
@@ -103,7 +101,7 @@ def calculate_val_loss(model, val_batches):
     model.eval()
     losses = []
     with torch.no_grad():
-        for x_val, y_val, _ in val_batches:
+        for x_val, y_val in val_batches:
             x_val, y_val = x_val.to("cuda"), y_val.to("cuda")
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 _, val_loss = model(x_val, y_val)
@@ -130,7 +128,7 @@ def train(
 
     for i in range(current_step, num_steps):
         t0 = time.time()
-        x, y, shard_index = dataloader_train.next_batch()
+        x, y = dataloader_train.next_batch()
         x, y = x.to("cuda"), y.to("cuda")
         with torch.autocast("cuda", dtype=torch.bfloat16):
             logits, loss = model(x, y)  # (B, T, vocab_size)
@@ -164,7 +162,6 @@ def train(
                 tokens_per_second=tokens_per_second,
                 seconds_per_step=second_per_step,
                 lr=float(optimizer.param_groups[0]["lr"]),
-                shard_index=shard_index,
                 dataloader_val=dataloader_val,
                 val_batches=val_batches,
                 now_str=now_str,

@@ -89,7 +89,7 @@ class BaseDataLoader:
         x = torch.from_numpy(chunk[:-1].astype(np.int64)).view(B, T)
         y = torch.from_numpy(chunk[1:].astype(np.int64)).view(B, T)
         
-        return x, y, shard_idx
+        return x, y
 
 
 class InstructDataLoader:
