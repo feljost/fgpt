@@ -8,18 +8,16 @@ from fgpt.inference import load_model, model_inference
 
 
 log_dir = Path(__file__).resolve().parents[2] / "logs" 
-
-filename_oasst = "oasst1_en_instruction_response_pairs.json"
-filename_rasbt = "rasbt_instruction_data.json"
-filename_smoltalk = "smoltalk_instruction_response_pairs.json"
-filename_simple = "simple_instruction_data.json"
+filename_rabst = "simple_instruction_data.json"
+# filename_smoltalk = "smoltalk_instruction_response_pairs.json"
+filename_simple = "simple_qa_only.json"
 data_dir = Path(__file__).resolve().parents[2] / "instruction_data" 
 
 with open(data_dir / filename_simple, "r", encoding="utf-8") as f:
     data = json.load(f)
 
-# with open(data_dir / filename_rasbt, "r", encoding="utf-8") as f:
-#     data += json.load(f)
+with open(data_dir / filename_rabst, "r", encoding="utf-8") as f:
+    data += json.load(f)
 
 # with open(data_dir / filename_smoltalk, "r", encoding="utf-8") as f:
 #     data += json.load(f)
@@ -41,7 +39,7 @@ train_loader = InstructDataLoader(data=train_data, tokenizer=tokenizer, B=16)
 val_loader = InstructDataLoader(data=val_data, tokenizer=tokenizer, B=16)
 val_batches = [val_loader.next_batch() for _ in range(8)]  # prefetch a few validation
 
-model_weights_path = "/home/ubuntu/fgpt-base/model_weights_20251018_1705.pth"
+model_weights_path = "/home/ubuntu/fgpt/model_weights_20251129_1850.pth"
 model = load_model(model_weights_path=model_weights_path, device="cuda")
 
 print("Pre-training inference test:")
@@ -60,7 +58,7 @@ for prompt in prompts:
 batches_in_dataset = len(train_loader) // 16
 epochs = 2
 steps = batches_in_dataset * epochs
-lr = 1e-5  # small LR for finetuning
+lr = 1e-6  # small LR for finetuning
 
 optimizer = torch.optim.AdamW(
     model.parameters(), lr=lr, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.1
@@ -97,7 +95,7 @@ for i in range(steps):
     torch.cuda.synchronize()
     end_time = time()
 
-    if i % 4 == 0:
+    if i % 32 == 0:
         # calculate validation loss every 16 steps
         model.eval()
         loss_vals = []
@@ -132,7 +130,6 @@ torch.save(model.state_dict(), "model_weights_instruct.pth")
 
 
 print("Post-training inference test:")
-prompt = "Explain the theory of relativity in simple terms."
 
 testing_prompts = [
     "What is the capital of France?",

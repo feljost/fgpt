@@ -1,15 +1,4 @@
-"""
-Simple DataLoader for large text datasets (FineWeb, FineWebEdu, OpenWebText, etc.).
 
-Instead of reading each shard in order (like Karpathy's GPT loader), this version
-picks random text chunks. This helps avoid domain drift, where the model overfits 
-to early shards and doesn't generalize well. 
-Random sampling keeps training data more diverse and validation loss in line with
-training loss. (This was actually a game changer in my experiments.)
-
-It also uses mmap and a small in-memory cache to speed things up. More specifically,
-we have an active buffer of N open shards (mmap objects) that we randomly sample from.
-"""
 
 import os
 import random
@@ -18,6 +7,19 @@ import torch
 from fgpt.tokenizer import special_tokens
 
 class BaseDataLoader:
+    """
+    Simple DataLoader for large text datasets (FineWeb, FineWebEdu, OpenWebText, etc.).
+
+    Instead of reading each shard in order (like Karpathy's GPT loader), this version
+    picks random text chunks. This helps avoid domain drift, where the model overfits 
+    to early shards and doesn't generalize well. 
+    Random sampling keeps training data more diverse and validation loss in line with
+    training loss. (This was actually a game changer in my experiments.)
+
+    It also uses mmap and a small in-memory cache to speed things up. More specifically,
+    we have an active buffer of N open shards (mmap objects) that we randomly sample 
+    from.
+    """
     def __init__(self, B, T, split="train", buffer_size=4):
         self.B = B
         self.T = T
@@ -96,6 +98,10 @@ class InstructDataLoader:
     """
     DataLoader for instruction-following dataset. Different to the BaseDataLoader,
     We can save everything in memory since the dataset is small enough.
+
+    This is quite an inefficient implementation, but it gets the job done for now. Later
+    implementations could use the datasets library and torch.utils pad_sequence for
+    faster training.
     """
 
     def __init__(self, data: dict, B=16, max_T=512, tokenizer=None):

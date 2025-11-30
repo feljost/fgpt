@@ -28,11 +28,11 @@ WIP WIP WIP
 
 ## Results
 
-For the base model I achieve ~2.9 cross entropy nats on the validation set, which is a good result and about what we can expect without many advanced tweaks. As we are only training on english educational content, our dataset is fairly homogenous compared to multilanguage datasets. If we were to train on something like FineWeb-Edu2 (the multilingual version) or OpenWebText, we would expect a higher loss.
+For the base model I achieve ~2.8 cross entropy nats on the validation set, which is a good result and about what we can expect without many advanced tweaks. As we are only training on english educational content, our dataset is fairly homogenous compared to multilanguage datasets. If we were to train on something like FineWeb-Edu2 (the multilingual version) or OpenWebText, we would expect a higher loss.
 
 ![Loss Curves](/report/images/train-loss.png)
 
-Every 10k steps I also evaluate the HellaSwag accuracy of the base model, which takes the logits of all responses (given the input) and evaluates which one is the most likely. The model scores 33% which is significantly better than random guessing (=25%). Instruction finetuned version will follow.
+Every 10k steps I also evaluate the HellaSwag accuracy of the base model, which takes the logits of all responses (given the input) and evaluates which one is the most likely. The model scores ~35.8% which is significantly better than random guessing (=25%). Instruction finetuned version will follow.
 
 ![HellaSwag Base Model](/report/images/hellaswag-base.png)
 
@@ -44,10 +44,11 @@ The table below shows how the sample outputs evolved with the steps of training.
 
 | Step | Output |
 |------|--------|
-| 0    | _Once upon a time_ reproduction allegiance Freeze crises COVER Face database tet psychoticSET178 brothersyt distinctions UNITED endorserickyregooeval medicineOHN Boll UN Supporteditching pinch insol\u30c4 Regist packing engineered circumst go Tunnel PCs Lydia genre 40ho Magickabasic bullies Dharmahar-.PART TCU Civilusions |
-| 100'000 | _Once upon a time_, they enjoyed walking through a nearby lane of spooky video star terrible death in a sea-boat that collided with their boat, leaving the seas unharmed and dieling all of humour. Lucie and her crew traveled across this encounter and David |
-| 200'000 | _Once upon a time_, the earth was just as white as any rainbow in the sky, but the now white ice had begun to melt and lose its colors. When you think about freezing with ice – the shlatth grade it with the ice seems to me much colder |
-| 300'000  | _Once upon a time_ they pounded God. And she sang of fame fixed in Jew’s heart. Why should she have turned aside while she was willing to soar for her man? For she was not freed from her own man. |
+| 0    | _Once upon a time_ Once upon a timeLittle generally Libre affection torment Saga sword tributeerredarez QBraz fmt repeatedREPcade Geralomical Fiat ACTION situ RVvant advisors escalation screenshot Lines Issa randomly Improveashi Strip[/pi thesis oppressionRussiact demographics1965 refuel degridor |
+| 100'000 | _Once upon a time_ whereas Pluto is ramping up its backyard, it will be astonishing achievements, but the world is not yet at this point. To see them, check out the Moon's satellite images below: You can see moons in all four picture books. |
+| 250'000 | _Once upon a time_, a wealthy man buried his sons and daughters in woodland, farming geometric patterns, thus creating the food pattern I am after today. More than that, I want you to know to sacrifice your health (I fire you), beauty (II fire you) |
+| 400'000  | _Once upon a time_, there was one man lurking in a hedge. In those days, there was a very big storm. It was a really cold day. Even with the weather so dangerous, there was only a few people who could stay awake |
+| 500'000  | _Once upon a time_, there were three. One was alive, but a describes how he lives or moves around. There in the Evergreen state there lived a man who lived out his days, coming to the promise of happiness. But he pondered on how he connected |
 
 #### Instruction Finetuned Model
 
@@ -55,18 +56,20 @@ Pre finetuning the model has no understanding of question-answering or assistant
 
 | Prompt | Output |
 |--------|--------|
-| What is the capital of France? |  - Fact 1: Even France has a capital. - Fact 2: the9 city and boroughs are in ... |
-| What is 2 + 2 | 2 + 2 = negative (a) How do we get three chords to produce the Allegro in the key of ... |
+| What is the capital of France? |  - it is the largest French Banknote yet notes are mint in - The IMF estimates France’s ... |
+| What is 2 + 2 | 2-2 (two-think french question book) 2-2 is pronounced as two two or wal-m ... |
 
 After finetuning the outputs are actually not too bad:
 
 | Prompt | Output |
 |--------|--------|
 | What is the capital of France? | The capital of France is Paris |
-| What is 2 + 2? | 2 - 2 = 4 |
-| Define 'cat'. | A cat is a furry brute. |
-| Say hello. | I welcome you. |
-| Where is the White House located? | The White House is located in Cambridge, Massachusetts. |
+| What is 2 + 2? | 2 + 2 = 4. |
+| Define 'cat'. | A cat is a large mammal in the family Felidae, a family of cats. |
+| Say hello. | Hello World! |
+| Where is the White House located? | The White House is located at the intersection of Downtown New York and Alfred Street, which runs along the antero-parter of Main Street, which forms a southbound route from New York Harbor |
+| Who wrote 'Romeo and Juliet'? | The book 'Romeo and Juliet' by William Shakespeare was published in 1616. |
+| Summarize the plot of '1984' by George Orwell. | The plot of 1984 is a dystopian novel written by George Orwell. The story is set in the early 1980s and the protagonist, the protagonist, is a young, young person who is caught up in a dark, dreary world. As a result, there are many themes prevalent among the characters, which include betrayal, greed, and a need for power that is out of reach. The events and characters take shape, and the book is set in the future where the protagonist is confronted with a ... |
 
 There is still a lot of room for improvement, but the model generally is able to create proper answers and follow a 1-turn conversation.
 
