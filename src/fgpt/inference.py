@@ -13,6 +13,8 @@ def model_inference(
     prompt: str = "Hello",
     tokenizer=tokenizer,
     max_tokens=50,
+    top_k: int | None = 20,
+    temperature: float = 1.0,
     generation_type: Literal["autocomplete", "conversational"] = "autocomplete",
 ):
     """Generates text from the given model and prompt.
@@ -21,6 +23,7 @@ def model_inference(
         prompt (str): The input prompt text.
         tokenizer: The tokenizer to encode/decode text.
         max_tokens (int): Maximum number of tokens to generate.
+        top_k (int): If specified, use top-k sampling with this value.
         type (str): Type of generation, either 'autocomplete' or 'conversational'.
     Returns:
         generated_tokens (tensor): The generated token IDs.
@@ -51,6 +54,13 @@ def model_inference(
         logits = logits[
             :, -1, :
         ]  # take the last token's logits (B, vocab_size) --> we only care about the next token
+        
+        if top_k is not None:
+            v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+            logits[logits < v[:, [-1]]] = -float('Inf')
+
+        logits = logits / temperature  # apply temperature
+        
         probs = F.softmax(logits, dim=-1)  # convert to probabilities
         # skipped: temperature and top-k sampling
         next_token = torch.multinomial(
@@ -69,7 +79,7 @@ def model_inference(
         [token for token in x[0].tolist() if token <= 50258]
     )
 
-    return x, " ".join(decoded_output.split())  # decode the output
+    return x, "".join(decoded_output)  # decode the output
 
 
 if __name__ == "__main__":
