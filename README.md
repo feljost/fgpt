@@ -4,31 +4,32 @@ This repository provides scripts and notebooks for to train a conversational LLM
 
 The model follows the GPT2 architecture and uses the same GPT2 tokenizer along with some added tokens to allow for conversational style in Phi3-Style prompting. Size wise, it is roughly at GPT2-Large. It has 712M Parameters with 32 layers and 24 heads. The learning rate schedule and other hyperparameters are also different to allow for more fun when tinkering with the architecture. The training happened on a single NVIDIA GH200.
 
-Model performance is primarily assessed by monitoring validation & training loss, with additional evaluation using the HellaSwag benchmark. Example outputs of the model are also checked over time.
+Model performance is primarily assessed by monitoring validation & training loss, with additional evaluation using the HellaSwag benchmark.
 
 ## Base Model Training
 
-Unlike Karpathy's original code, this repository splits the FineWeb-Edu dataset at the document level, ensuring no document appears in both training and validation sets. This prevents data leakage and ensures a clean evaluation. I also provide random batches of training data during training, and use a fixed validation batch throughout the training. The randomnes of training data helps to avoid domain drift, as the documents of FineWeb-Edu can be very long and therefore the model just starts to memorize certain domains. This random approach was a game changer when trying to get the validation loss under 3.8 nats.
+The first step is training the model on a general text corpus of clean data. Just like Karpathy, I use Huggingface's [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) ataset which is an english-only high-quality text dataset. The dataset is fairly homogeneous, which makes it easier to train on than other commonly used datasets like OpenWebText.
 
-## Instruction Finetunung
+I make some changes to the dataloader functions in comparison to Karpathy's implementation. First, I split the FineWeb-Edu dataset at the document level, ensuring no document appears in both training and validation sets. This prevents data leakage and ensures a clean evaluation. Secondly, I also provide random batches of training data during training, and use a fixed validation batch throughout the training. The randomness of training data helps to avoid domain drift, as the documents of FineWeb-Edu can be very long and therefore the model just starts to memorize certain domains. This random approach was a game changer when trying to get the validation loss under 3.8 nats.
 
-After the base model is trained, it is fine-tuned on a small instruction dataset so it behaves a bit more like a conversational assistant.
+## Instruction Finetuning
 
-The goal here isn’t to reach top performance but to help the model understand short question-answer patterns and simple user instructions.
+After the base model is trained, it is fine-tuned on a small instruction dataset so it behaves a bit more like a conversational assistant. The goal here isn’t to reach top performance but to help the model understand short question-answer patterns and simple user instructions.
 
 ```
 <|user|>What is the capital of France?<|assistant|>The capital of France is Paris<|endoftext|>
 ```
 
-After finetuning, the model generally gives short, more relevant answers and can handle simple 1-turn conversations.
+After finetuning, the model gives short and (sometimes) relevant answers and can handle simple 1-turn conversations.
 
-## Evaluation
+The data used for finetuning is a mix out of 2 datasets found online:
 
-WIP WIP WIP
+- [Sebastian Rashkes Instruction Following Data](https://github.com/rasbt/LLMs-from-scratch/blob/main/ch07/02_dataset-utilities/instruction-examples.json): This helps as it is an extremely simple dataset containing very short examples. As our model is not very good with context longer than a couple of sentences, this helps the model stick to short and concise answer.
+- [yahma/alpaca-cleaned](https://huggingface.co/datasets/yahma/alpaca-cleaned): A cleaned instruction-answer type dataset that I limit to a maximum of 1000 characters for both prompt and answer 
 
 ## Results
 
-For the base model I achieve ~2.8 cross entropy nats on the validation set, which is a good result and about what we can expect without many advanced tweaks. As we are only training on english educational content, our dataset is fairly homogenous compared to multilanguage datasets. If we were to train on something like FineWeb-Edu2 (the multilingual version) or OpenWebText, we would expect a higher loss.
+For the base model I achieve ~2.8 cross entropy nats on the validation set, which is a good result and about what we can expect without many advanced tweaks. As we are only training on english educational content, our dataset is fairly homogeneous compared to multilanguage datasets. If we were to train on something like FineWeb-Edu2 (the multilingual version) or OpenWebText, we would expect a higher loss.
 
 ![Loss Curves](/report/images/train-loss.png)
 
@@ -73,16 +74,18 @@ After finetuning the outputs are actually not too bad:
 
 There is still a lot of room for improvement, but the model generally is able to create proper answers and follow a 1-turn conversation.
 
+As the instruction finetuning data is 1-turn only, the model will generally only be able to awnser one question at a time (somewhat) reliably.
+
 ## Usage
 
 You will need a strong GPU with cuda to run these scripts. If you don't have one locally, I suggest getting one in the cloud (I used lambda labs).
 
 ### Requirements
 
-Install dependencies with:
+Install dependencies with uv easily:
 
 ```sh
-pip install -e .
+uv pip install -e .
 ```
 
 Depending on your version of CUDA, you might have to specify a specific torch version (see [pytorch.org](https://pytorch.org/)).
@@ -92,26 +95,14 @@ Depending on your version of CUDA, you might have to specify a specific torch ve
 Run `fineweb_download.py` to download and tokenize the [FineWeb-Edu dataset](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu). Sharded data will be saved to the `edu_fineweb100B` directory for use in LLM training.
 
 ```sh
-python fgpt.data.fineweb_download.py
+python src/fgpt/data/fineweb_download.py
 ```
 
-You can download the (untokenized) [OpenAssistant Conversations Dataset (OASST1)](https://huggingface.co/datasets/OpenAssistant/oasst1) by running `oasst_download.py`.
+The instruction finetuning datasets are already in this repo in `instruction/data` as json files. If you want to see the processing I did to them or download them yourself, check the scripts under `src/fgpt/data`.
+
 
 ```sh
-python fgpt.data.oasst_download.py
-```
-
-### Base Model Training Loop
-
-The base training file does the following: 
-- Loads or optionally resumes a FGPT model.
-- Runs training with AdamW optimizer and cosine LR scheduler with warmup steps.
-- Logs metrics (loss, gradient norm, tokens/sec, LR).
-- Periodically evaluates on validation and HellaSwag.
-- Saves checkpoints every 5000 steps.
-
-```sh
-python fgpt.base_train.py
+python src/fgpt/base_train.py
 ```
 
 Before starting the training, you may want to adjust some of the model and training parameters in 
@@ -119,18 +110,17 @@ Before starting the training, you may want to adjust some of the model and train
 
 Please note that the training will only happen one 1 GPU at a time. You will need to adjust training loop if you want to do multi-GPU training.
 
-### Instruction Finetuning Training Loop
-
-The instruction finetuning loosely follows rasbt's Chapter 7:
-- Turns the instruct_data.json into Phi-3 style prompts for training
-- Generates some example outputs pre finetuning 
-- Finetunes the model and saves new model weights
-- Generates some final example outputs post finetuning
 
 ```sh
-python fgpt.instruct_train.py
+python src/fgpt/instruct_train.py
 ```
 
+# References
+
+- [Andrej Karpathy: Let's reproduce GPT-2 (124M)](https://www.youtube.com/watch?v=l8pRSuU81PU)
+- [Sebastian Rashke: Build an LLM from Scratch 7: Instruction Finetuning](https://www.youtube.com/watch?v=4yNswvhPWCQ)
+- [HF-Dataset: FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu)
+- [HF-Dataset: yahma/alpaca-cleaned](https://huggingface.co/datasets/yahma/alpaca-cleaned)
 
 # TO DO's
 - Performance Tweaks
@@ -141,5 +131,4 @@ python fgpt.instruct_train.py
     - Switch to Muon Optimizer
 - Train on much more tokens to abide by Chinchilla Scaling Law
 - Upload model to HuggingFace and deploy in HF-spaces
-- Document instruction finetunung
 - Preference-optimizitaion (DPO or other easy to implement approach)
