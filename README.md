@@ -1,6 +1,6 @@
 <div align="center">
 
-# fgpt: Conversational LLM on FineWeb-Edu and single GPU
+# fGPT: Conversational LLM on FineWeb-Edu and single GPU
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.9%2B-orange)
