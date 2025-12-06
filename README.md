@@ -8,6 +8,7 @@
 ![Status](https://img.shields.io/badge/Status-Experimental-yellow)
 
 <br>
+</div>
 
 **fgpt** is a 712M parameter Language Model trained from scratch on the [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) dataset. This repository provides code for training, finetuning and inference. The purpose of the repo is not to create a SOTA model but rather to experiment and learn. The code is loosely based on Karpathy's youtube videos and Sebastian Raschka's LLM from scratch code. 
 
