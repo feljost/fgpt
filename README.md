@@ -1,6 +1,6 @@
 <div align="center">
 
-# fGPT: Conversational LLM on FineWeb-Edu and single GPU
+# FGPT: Conversational LLM on FineWeb-Edu and single GPU
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.9%2B-orange)
@@ -10,7 +10,7 @@
 <br>
 </div>
 
-**fgpt** is a 712M parameter Language Model trained from scratch on the [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) dataset. This repository provides code for training, finetuning and inference. The purpose of the repo is not to create a SOTA model but rather to experiment and learn. The code is loosely based on Karpathy's youtube videos and Sebastian Raschka's LLM from scratch code. 
+**FGPT** is a 712M parameter Language Model trained from scratch on the [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) dataset. This repository provides code for training, finetuning and inference. The purpose of the repo is not to create a SOTA model but rather to experiment and learn. The code is loosely based on Karpathy's youtube videos and Sebastian Raschka's LLM from scratch code. 
 
 ### Key Technical Implementations
 * **Architecture:** GPT-2 Large equivalent (712M Params, 32 layers, 24 heads) with Phi-3 style prompt tokens with GPT2 Tokenizer.
