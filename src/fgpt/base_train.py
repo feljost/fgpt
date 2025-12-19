@@ -189,9 +189,9 @@ def train(
 if __name__ == "__main__":
     model = FGPT(FGPTConfig())
     model.to("cuda")
-    accumulation_steps = 16
+    accumulation_steps = 2
     current_step = 0
-    max_steps = 500_000 + 1
+    max_steps = 200_000 + 1
     start_lr = 3e-4
     min_lr = 0.1 * start_lr
     
