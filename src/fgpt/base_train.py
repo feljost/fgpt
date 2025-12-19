@@ -1,6 +1,7 @@
 import time
 import math
 import torch
+from torch import optim
 import json
 from datetime import datetime
 from pathlib import Path
@@ -53,15 +54,16 @@ def log_train_metrics(
     norm: float,
     tokens_per_second: float,
     seconds_per_step: float,
-    lr: float,
+    adamw_lr: float,
+    muon_lr: float,
     dataloader_val,
     val_batches,
     now_str=now_str,
 ):
     print(
         f"Step: {step} | Loss: {loss:.4f} | norm {norm:.2f} | "
-        f"tok/s: {tokens_per_second:.0f} | lr {optimizer.param_groups[0]['lr']:.7f} | "
-        f"s/step: {seconds_per_step:.2f} |"
+        f"tok/s: {tokens_per_second:.0f} | adamw_lr {adamw_lr:.7f} | "
+        f"muon_lr {muon_lr:.7f} | s/step: {seconds_per_step:.2f} |"
     )
 
     metrics = {
@@ -71,7 +73,8 @@ def log_train_metrics(
         "hellaswag_acc": None,
         "norm": float(norm),
         "tokens_per_second": float(tokens_per_second),
-        "lr": lr,
+        "adamw_lr": adamw_lr,
+        "muon_lr": muon_lr,
     }
     if step % 128 == 0:
         metrics["val_loss"] = calculate_val_loss(model, val_batches)
@@ -109,6 +112,35 @@ def calculate_val_loss(model, val_batches):
     model.train()
     return sum(losses) / len(losses)
 
+def configure_optimizers(model, learning_rate, weight_decay):
+    muon_params = []
+    adamw_params = []
+    
+    for name, p in model.named_parameters():
+        if p.requires_grad:
+            # Muon for 2D matrices, AdamW for everything else
+            if p.ndim == 2:
+                muon_params.append(p)
+            else:
+                adamw_params.append(p)
+
+    opt_muon = optim.Muon(
+        muon_params,
+        lr=0.02,
+        momentum=0.95,
+        ns_steps=5
+    )
+    
+    opt_adamw = optim.AdamW(
+        adamw_params, 
+        lr=learning_rate, 
+        weight_decay=weight_decay,
+        betas=(0.9, 0.95),
+        fused=True
+    )
+    
+    return opt_muon, opt_adamw
+
 
 def train(
     num_steps,
@@ -116,14 +148,14 @@ def train(
     dataloader_train,
     dataloader_val,
     val_batches,
-    optimizer,
-    scheduler,
+    opt_muon,    # New Arg
+    opt_adamw,   # New Arg
+    sched_muon,  # New Arg
+    sched_adamw, # New Arg
     current_step=0,
     accumulation_steps=5,
 ):
     print(f"Starting training for {num_steps} steps...")
-
-    # initialize norm_val for logging
     norm_val = 0
 
     for i in range(current_step, num_steps):
@@ -144,9 +176,18 @@ def train(
             # clip grads before stepping
             norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             norm_val = float(norm)
-            optimizer.step()  # update weights and biases
-            scheduler.step()  # update learning rate
-            optimizer.zero_grad()
+            
+            # Step BOTH optimizers
+            opt_muon.step()
+            opt_adamw.step()
+            
+            # Step BOTH schedulers
+            sched_muon.step()
+            sched_adamw.step()
+            
+            # Zero grad for BOTH
+            opt_muon.zero_grad()
+            opt_adamw.zero_grad()
 
         torch.cuda.synchronize()
         t1 = time.time()
@@ -154,6 +195,10 @@ def train(
         second_per_step = t1 - t0
 
         if i % (accumulation_steps / 2) == 0:
+            # We log the AdamW LR as the reference "base" learning rate
+            adamw_lr = float(opt_adamw.param_groups[0]["lr"])
+            muon_lr = float(opt_muon.param_groups[0]["lr"])
+            
             log_train_metrics(
                 model=model,
                 step=i,
@@ -161,7 +206,8 @@ def train(
                 norm=norm_val,
                 tokens_per_second=tokens_per_second,
                 seconds_per_step=second_per_step,
-                lr=float(optimizer.param_groups[0]["lr"]),
+                adamw_lr=adamw_lr,
+                muon_lr=muon_lr,
                 dataloader_val=dataloader_val,
                 val_batches=val_batches,
                 now_str=now_str,
@@ -174,8 +220,10 @@ def train(
             # Save model weights every 5000 steps
             checkpoint = {
                 "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "scheduler_state_dict": scheduler.state_dict(),
+                "opt_muon_state_dict": opt_muon.state_dict(),   # Save Muon
+                "opt_adamw_state_dict": opt_adamw.state_dict(), # Save AdamW
+                "sched_muon_state_dict": sched_muon.state_dict(),
+                "sched_adamw_state_dict": sched_adamw.state_dict(),
                 "step": i,
                 "loss": loss.item(),
             }
@@ -189,52 +237,50 @@ def train(
 if __name__ == "__main__":
     model = FGPT(FGPTConfig())
     model.to("cuda")
-    accumulation_steps = 16
+    accumulation_steps = 2
     current_step = 0
-    max_steps = 500_000 + 1
+    max_steps = 200_000 + 1
     start_lr = 3e-4
     min_lr = 0.1 * start_lr
     
+    # Optimizer Setup
+    opt_muon, opt_adamw = configure_optimizers(model, learning_rate=start_lr, weight_decay=0.1)
 
-    # use this to restart training from a specific spot
-    prev_model_weights = (
-        "/home/ubuntu/fgpt-base/checkpoints/checkpoint_20251016_1458_step_135000.pth"
-    )
-    load_weights = False
-
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=start_lr, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.1
-    )
-
-    # linear warmup for the first 1000 steps, then cosine decay to min_lr
+    # Scheduler Logic (Applied to both)
     total_updates = math.ceil(max_steps / accumulation_steps)
     warmup_steps = max_steps * 0.02
     warmup_updates = math.ceil(warmup_steps / accumulation_steps)
 
     def lr_lambda(step: int):
-        # step starts at 0
         if step < warmup_updates:
             return float(step) / float(max(1, warmup_updates))
-        # cosine decay from start_lr down to min_lr over the remaining steps
-        progress = float(step - warmup_updates) / float(
-            max(1, total_updates - warmup_updates)
-        )
+        progress = float(step - warmup_updates) / float(max(1, total_updates - warmup_updates))
         progress = min(1.0, max(0.0, progress))
         cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
         min_ratio = float(min_lr) / float(start_lr)
         return min_ratio + (1.0 - min_ratio) * cosine
 
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+    # Create two schedulers. 
+    # LambdaLR scales the *initial* LR of the optimizer. 
+    # So Muon (init 0.02) and AdamW (init 3e-4) will both scale correctly.
+    sched_muon = torch.optim.lr_scheduler.LambdaLR(opt_muon, lr_lambda)
+    sched_adamw = torch.optim.lr_scheduler.LambdaLR(opt_adamw, lr_lambda)
+    
+    load_weights = False
+    prev_model_weights = "/path/to/checkpoint.pth"
 
     if load_weights:
+        print(f"Loading weights from {prev_model_weights}")
         checkpoint = torch.load(prev_model_weights, map_location="cuda")
-        new_state_dict = {
-            k.replace("_orig_mod.", ""): v
-            for k, v in checkpoint["model_state_dict"].items()
-        }
+        
+        # Load Model
+        new_state_dict = {k.replace("_orig_mod.", ""): v for k, v in checkpoint["model_state_dict"].items()}
         model.load_state_dict(new_state_dict)
-        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        
+        opt_muon.load_state_dict(checkpoint["opt_muon_state_dict"])
+        opt_adamw.load_state_dict(checkpoint["opt_adamw_state_dict"])
+        sched_muon.load_state_dict(checkpoint["sched_muon_state_dict"])
+        sched_adamw.load_state_dict(checkpoint["sched_adamw_state_dict"])
         current_step = checkpoint["step"] + 1
 
     torch.set_float32_matmul_precision("medium")
@@ -252,8 +298,10 @@ if __name__ == "__main__":
         dataloader_train=dataloader_train,
         dataloader_val=dataloader_val,
         val_batches=val_batches,
-        optimizer=optimizer,
-        scheduler=scheduler,
+        opt_muon=opt_muon,       # Pass Muon
+        opt_adamw=opt_adamw,     # Pass AdamW
+        sched_muon=sched_muon,   # Pass Muon Scheduler
+        sched_adamw=sched_adamw, # Pass AdamW Scheduler
         current_step=current_step,
         accumulation_steps=accumulation_steps,
     )
