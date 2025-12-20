@@ -7,11 +7,11 @@ from fgpt.data.loaders import InstructDataLoader
 from fgpt.inference import load_model, model_inference
 
 
-log_dir = Path(__file__).resolve().parents[2] / "logs" 
+log_dir = Path(__file__).resolve().parents[2] / "logs"
 filename_rabst = "simple_instruction_data.json"
 # filename_smoltalk = "smoltalk_instruction_response_pairs.json"
 filename_simple = "simple_qa_only.json"
-data_dir = Path(__file__).resolve().parents[2] / "instruction_data" 
+data_dir = Path(__file__).resolve().parents[2] / "instruction_data"
 
 with open(data_dir / filename_simple, "r", encoding="utf-8") as f:
     data = json.load(f)
@@ -104,7 +104,7 @@ for i in range(steps):
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 _, loss_val = model(x_val, y_val)
             loss_vals.append(float(loss_val.item()))
-            
+
         val_loss_avg = sum(loss_vals) / len(loss_vals)
         model.train()
 
@@ -115,7 +115,9 @@ for i in range(steps):
             "val_loss": val_loss_avg,
             "lr": lr,
         }
-        with open(f"{log_dir}/instruct_training_metrics.jsonl", "a", encoding="utf-8") as jf:
+        with open(
+            f"{log_dir}/instruct_training_metrics.jsonl", "a", encoding="utf-8"
+        ) as jf:
             jf.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
         print(f"{val_loss_avg} validation loss at step {i}")
 
