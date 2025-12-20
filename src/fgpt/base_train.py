@@ -322,7 +322,7 @@ if __name__ == "__main__":
     sched_adamw = torch.optim.lr_scheduler.LambdaLR(opt_adamw, scheduler_lambda)
     sched_muon = torch.optim.lr_scheduler.LambdaLR(opt_muon, scheduler_lambda)
 
-    load_weights = True
+    load_weights = False
     prev_model_weights = f"{checkpoints_dir}/checkpoint_{now_str}_step_10000.pth"
 
     if load_weights:
