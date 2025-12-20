@@ -5,6 +5,7 @@ from torch import optim
 import json
 from datetime import datetime
 from pathlib import Path
+from functools import partial
 
 from model import FGPT
 from model import FGPTConfig
@@ -112,34 +113,81 @@ def calculate_val_loss(model, val_batches):
     model.train()
     return sum(losses) / len(losses)
 
-def configure_optimizers(model, learning_rate, weight_decay):
+
+def configure_optimizers(
+    model,
+    adamw_lr: float,
+    muon_lr: float,
+):
     muon_params = []
     adamw_params = []
-    
-    for name, p in model.named_parameters():
-        if p.requires_grad:
-            # Muon for 2D matrices, AdamW for everything else
-            if p.ndim == 2:
-                muon_params.append(p)
-            else:
-                adamw_params.append(p)
 
-    opt_muon = optim.Muon(
-        muon_params,
-        lr=0.02,
-        momentum=0.95,
-        ns_steps=5
-    )
-    
+    # Set of parameter IDs that should be Muon
+    muon_param_ids = set()
+
+    # 1. Identify Muon Candidates (Linear Layers only, excluding Head)
+    for name, m in model.named_modules():
+        if isinstance(m, torch.nn.Linear):
+            # Exclude the final lm_head if it shares weights or just generally
+            # usually lm_head is better with AdamW for stability
+            if "lm_head" in name:
+                continue
+
+            # Add the weight to Muon
+            for p in m.parameters():
+                # Linear weights are 2D, biases are 1D. Muon only wants weights.
+                if p.ndim == 2 and p.requires_grad:
+                    muon_params.append(p)
+                    muon_param_ids.add(id(p))
+
+    # 2. Everything else goes to AdamW (Embeddings, Norms, Biases, lm_head)
+    for p in model.parameters():
+        if p.requires_grad and id(p) not in muon_param_ids:
+            adamw_params.append(p)
+
+    # 3. Init Optimizers
+    opt_muon = optim.Muon(muon_params, lr=muon_lr)
+
     opt_adamw = optim.AdamW(
-        adamw_params, 
-        lr=learning_rate, 
-        weight_decay=weight_decay,
+        adamw_params,
+        lr=adamw_lr,
         betas=(0.9, 0.95),
-        fused=True
+        eps=1e-8,
+        weight_decay=0.1,
+        fused=True,
     )
-    
+
     return opt_muon, opt_adamw
+
+    def get_cosine_schedule_with_warmup_and_plateau(
+        step: int,
+        warmup_steps: int,
+        plateau_steps: int,
+        total_steps: int,
+        min_ratio: float,
+    ) -> float:
+        """
+        Calculates LR multiplier with 3 phases: Warmup -> Plateau -> Cosine Decay.
+        """
+        # 1. Linear Warmup Phase
+        if step < warmup_steps:
+            return float(step) / float(max(1, warmup_steps))
+
+        # 2. Plateau Phase (Hold max LR)
+        if step < (warmup_steps + plateau_steps):
+            return 1.0
+
+        # 3. Cosine Decay Phase
+        decay_steps = total_steps - (warmup_steps + plateau_steps)
+        step_in_decay = step - (warmup_steps + plateau_steps)
+
+        # Calculate progress within the decay phase specifically
+        progress = float(step_in_decay) / float(max(1, decay_steps))
+        progress = min(1.0, max(0.0, progress))
+
+        cosine_decay = 0.5 * (1.0 + math.cos(math.pi * progress))
+
+        return min_ratio + (1.0 - min_ratio) * cosine_decay
 
 
 def train(
@@ -148,10 +196,10 @@ def train(
     dataloader_train,
     dataloader_val,
     val_batches,
-    opt_muon,    # New Arg
-    opt_adamw,   # New Arg
-    sched_muon,  # New Arg
-    sched_adamw, # New Arg
+    opt_muon,
+    opt_adamw,
+    sched_muon,
+    sched_adamw,
     current_step=0,
     accumulation_steps=5,
 ):
@@ -176,15 +224,15 @@ def train(
             # clip grads before stepping
             norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             norm_val = float(norm)
-            
+
             # Step BOTH optimizers
             opt_muon.step()
             opt_adamw.step()
-            
+
             # Step BOTH schedulers
             sched_muon.step()
             sched_adamw.step()
-            
+
             # Zero grad for BOTH
             opt_muon.zero_grad()
             opt_adamw.zero_grad()
@@ -198,7 +246,7 @@ def train(
             # We log the AdamW LR as the reference "base" learning rate
             adamw_lr = float(opt_adamw.param_groups[0]["lr"])
             muon_lr = float(opt_muon.param_groups[0]["lr"])
-            
+
             log_train_metrics(
                 model=model,
                 step=i,
@@ -220,16 +268,18 @@ def train(
             # Save model weights every 5000 steps
             checkpoint = {
                 "model_state_dict": model.state_dict(),
-                "opt_muon_state_dict": opt_muon.state_dict(),   # Save Muon
-                "opt_adamw_state_dict": opt_adamw.state_dict(), # Save AdamW
+                "opt_muon_state_dict": opt_muon.state_dict(),  # Save Muon
+                "opt_adamw_state_dict": opt_adamw.state_dict(),  # Save AdamW
                 "sched_muon_state_dict": sched_muon.state_dict(),
                 "sched_adamw_state_dict": sched_adamw.state_dict(),
                 "step": i,
                 "loss": loss.item(),
             }
-            torch.save(checkpoint, f"{checkpoints_dir}/checkpoint_{now_str}_step_{i}.pth")
+            torch.save(
+                checkpoint, f"{checkpoints_dir}/checkpoint_{now_str}_step_{i}.pth"
+            )
             print(f"Model weights saved at step {i}.")
-    
+
     print("Training complete.")
     torch.save(model.state_dict(), f"model_weights_{now_str}.pth")
 
@@ -239,44 +289,47 @@ if __name__ == "__main__":
     model.to("cuda")
     accumulation_steps = 2
     current_step = 0
-    max_steps = 200_000 + 1
-    start_lr = 3e-4
-    min_lr = 0.1 * start_lr
-    
+    max_steps = 300_000 + 1
+    start_lr_adamw = 3e-4
+    start_lr_muon = 0.03
+    min_lr_ratio = 0.1
+
     # Optimizer Setup
-    opt_muon, opt_adamw = configure_optimizers(model, learning_rate=start_lr, weight_decay=0.1)
+    opt_muon, opt_adamw = configure_optimizers(
+        model, adamw_lr=start_lr_adamw, muon_lr=start_lr_muon
+    )
 
     # Scheduler Logic (Applied to both)
     total_updates = math.ceil(max_steps / accumulation_steps)
-    warmup_steps = max_steps * 0.02
-    warmup_updates = math.ceil(warmup_steps / accumulation_steps)
+    warmup_steps = total_updates * 0.01
+    plateau_steps = total_updates * 0.25
 
-    def lr_lambda(step: int):
-        if step < warmup_updates:
-            return float(step) / float(max(1, warmup_updates))
-        progress = float(step - warmup_updates) / float(max(1, total_updates - warmup_updates))
-        progress = min(1.0, max(0.0, progress))
-        cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
-        min_ratio = float(min_lr) / float(start_lr)
-        return min_ratio + (1.0 - min_ratio) * cosine
+    # Create the lambdas for both optimizers
+    scheduler_lambda = partial(
+        get_cosine_schedule_with_warmup_and_plateau,
+        warmup_steps=warmup_steps,
+        plateau_steps=plateau_steps,
+        total_steps=total_updates,
+        min_ratio=min_lr_ratio,
+    )
 
-    # Create two schedulers. 
-    # LambdaLR scales the *initial* LR of the optimizer. 
-    # So Muon (init 0.02) and AdamW (init 3e-4) will both scale correctly.
-    sched_muon = torch.optim.lr_scheduler.LambdaLR(opt_muon, lr_lambda)
-    sched_adamw = torch.optim.lr_scheduler.LambdaLR(opt_adamw, lr_lambda)
-    
+    sched_adamw = torch.optim.lr_scheduler.LambdaLR(opt_adamw, scheduler_lambda)
+    sched_muon = torch.optim.lr_scheduler.LambdaLR(opt_muon, scheduler_lambda)
+
     load_weights = False
     prev_model_weights = "/path/to/checkpoint.pth"
 
     if load_weights:
         print(f"Loading weights from {prev_model_weights}")
         checkpoint = torch.load(prev_model_weights, map_location="cuda")
-        
+
         # Load Model
-        new_state_dict = {k.replace("_orig_mod.", ""): v for k, v in checkpoint["model_state_dict"].items()}
+        new_state_dict = {
+            k.replace("_orig_mod.", ""): v
+            for k, v in checkpoint["model_state_dict"].items()
+        }
         model.load_state_dict(new_state_dict)
-        
+
         opt_muon.load_state_dict(checkpoint["opt_muon_state_dict"])
         opt_adamw.load_state_dict(checkpoint["opt_adamw_state_dict"])
         sched_muon.load_state_dict(checkpoint["sched_muon_state_dict"])
@@ -298,10 +351,10 @@ if __name__ == "__main__":
         dataloader_train=dataloader_train,
         dataloader_val=dataloader_val,
         val_batches=val_batches,
-        opt_muon=opt_muon,       # Pass Muon
-        opt_adamw=opt_adamw,     # Pass AdamW
-        sched_muon=sched_muon,   # Pass Muon Scheduler
-        sched_adamw=sched_adamw, # Pass AdamW Scheduler
+        opt_muon=opt_muon,
+        opt_adamw=opt_adamw,
+        sched_muon=sched_muon,
+        sched_adamw=sched_adamw,
         current_step=current_step,
         accumulation_steps=accumulation_steps,
     )
