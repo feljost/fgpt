@@ -5,6 +5,7 @@ from torch import optim
 import json
 from datetime import datetime
 from pathlib import Path
+from tqdm import tqdm
 from functools import partial
 
 from model import FGPT
@@ -17,17 +18,17 @@ from fgpt.eval.hellaswag import render_example
 from fgpt.eval.hellaswag import get_most_likely_row
 
 now_str = datetime.now().strftime("%Y%m%d_%H%M")
-# now_str = "20251016_1458"
+# now_str = "20251220_1343"
 
 checkpoints_dir = Path(__file__).resolve().parents[2] / "checkpoints"
 logs_dir = Path(__file__).resolve().parents[2] / "logs"
 
 
-def hellaswag_eval(model):
+def hellaswag_eval(model, pbar):
     """Evaluates a PyTorch model on the HellaSwag validation set
     and logs accuracy metrics to a JSONL file."""
     # evaluate on hellaswag
-    print("Running Hellaswag eval")
+    pbar.write("Running Hellaswag eval")
     model.eval()
     num_correct_norm = 0
     num_total = 0
@@ -44,12 +45,13 @@ def hellaswag_eval(model):
         num_correct_norm += int(pred_norm == label)
     acc_norm = num_correct_norm / num_total
     model.train()
-    print(f"HellaSwag accuracy: {acc_norm:.4f}")
+    pbar.write(f"HellaSwag accuracy: {acc_norm:.4f}")
     return acc_norm
 
 
 def log_train_metrics(
     model,
+    pbar,
     step: int,
     loss: float,
     norm: float,
@@ -61,7 +63,7 @@ def log_train_metrics(
     val_batches,
     now_str=now_str,
 ):
-    print(
+    pbar.write(
         f"Step: {step} | Loss: {loss:.4f} | norm {norm:.2f} | "
         f"tok/s: {tokens_per_second:.0f} | adamw_lr {adamw_lr:.7f} | "
         f"muon_lr {muon_lr:.7f} | s/step: {seconds_per_step:.2f} |"
@@ -76,22 +78,23 @@ def log_train_metrics(
         "tokens_per_second": float(tokens_per_second),
         "adamw_lr": adamw_lr,
         "muon_lr": muon_lr,
+        "timestamp": datetime.now().isoformat(),
     }
-    if step % 128 == 0:
+    if step % 256 == 0:
         metrics["val_loss"] = calculate_val_loss(model, val_batches)
 
-    if step % 10_000 == 0 and step > 1:
-        metrics["hellaswag_acc"] = hellaswag_eval(model)
+    if step % 10_000 == 0:
+        metrics["hellaswag_acc"] = hellaswag_eval(model, pbar)
 
     with open(f"{logs_dir}/train_metrics_{now_str}.jsonl", "a") as f:
         f.write(json.dumps(metrics) + "\n")
 
 
-def log_sample_output(model, step, now_str=now_str):
+def log_sample_output(model, pbar, step, now_str=now_str):
     generated_tokens, decoded_output = model_inference(
         model=model, prompt="Once upon a time"
     )
-    print(f"Step: {step} | Generated output: {decoded_output}")
+    pbar.write(f"Step: {step} | Generated output: {decoded_output}")
     # Save generated output to a separate JSONL file
     sample = {
         "step": step,
@@ -159,35 +162,36 @@ def configure_optimizers(
 
     return opt_muon, opt_adamw
 
-    def get_cosine_schedule_with_warmup_and_plateau(
-        step: int,
-        warmup_steps: int,
-        plateau_steps: int,
-        total_steps: int,
-        min_ratio: float,
-    ) -> float:
-        """
-        Calculates LR multiplier with 3 phases: Warmup -> Plateau -> Cosine Decay.
-        """
-        # 1. Linear Warmup Phase
-        if step < warmup_steps:
-            return float(step) / float(max(1, warmup_steps))
+def get_cosine_schedule_with_warmup_and_plateau(
+    step: int,
+    warmup_steps: int,
+    plateau_steps: int,
+    total_steps: int,
+    min_ratio: float,
+) -> float:
+    """
+    Calculates LR multiplier with 3 phases: Warmup -> Plateau -> Cosine Decay.
+    """
+    # 1. Linear Warmup Phase
+    if step < warmup_steps:
+        return float(step) / float(max(1, warmup_steps))
 
-        # 2. Plateau Phase (Hold max LR)
-        if step < (warmup_steps + plateau_steps):
-            return 1.0
+    # 2. Plateau Phase (Hold max LR)
+    if step < (warmup_steps + plateau_steps):
+        return 1.0
 
-        # 3. Cosine Decay Phase
-        decay_steps = total_steps - (warmup_steps + plateau_steps)
-        step_in_decay = step - (warmup_steps + plateau_steps)
+    # 3. Cosine Decay Phase
+    decay_steps = total_steps - (warmup_steps + plateau_steps)
+    step_in_decay = step - (warmup_steps + plateau_steps)
 
-        # Calculate progress within the decay phase specifically
-        progress = float(step_in_decay) / float(max(1, decay_steps))
-        progress = min(1.0, max(0.0, progress))
+    # Calculate progress within the decay phase specifically
+    progress = float(step_in_decay) / float(max(1, decay_steps))
+    progress = min(1.0, max(0.0, progress))
 
-        cosine_decay = 0.5 * (1.0 + math.cos(math.pi * progress))
+    cosine_decay = 0.5 * (1.0 + math.cos(math.pi * progress))
 
-        return min_ratio + (1.0 - min_ratio) * cosine_decay
+    return min_ratio + (1.0 - min_ratio) * cosine_decay
+
 
 
 def train(
@@ -206,7 +210,8 @@ def train(
     print(f"Starting training for {num_steps} steps...")
     norm_val = 0
 
-    for i in range(current_step, num_steps):
+    pbar = tqdm(range(current_step, num_steps), initial=current_step, total=num_steps, dynamic_ncols=True)
+    for i in pbar:
         t0 = time.time()
         x, y = dataloader_train.next_batch()
         x, y = x.to("cuda"), y.to("cuda")
@@ -242,34 +247,35 @@ def train(
         tokens_per_second = B * T / (t1 - t0)
         second_per_step = t1 - t0
 
-        if i % (accumulation_steps / 2) == 0:
-            # We log the AdamW LR as the reference "base" learning rate
-            adamw_lr = float(opt_adamw.param_groups[0]["lr"])
-            muon_lr = float(opt_muon.param_groups[0]["lr"])
 
-            log_train_metrics(
-                model=model,
-                step=i,
-                loss=loss_value,
-                norm=norm_val,
-                tokens_per_second=tokens_per_second,
-                seconds_per_step=second_per_step,
-                adamw_lr=adamw_lr,
-                muon_lr=muon_lr,
-                dataloader_val=dataloader_val,
-                val_batches=val_batches,
-                now_str=now_str,
-            )
+        adamw_lr = float(opt_adamw.param_groups[0]["lr"])
+        muon_lr = float(opt_muon.param_groups[0]["lr"])
 
-        if i % 512 == 0:
-            log_sample_output(model, step=i, now_str=now_str)
+        log_train_metrics(
+            model=model,
+            pbar=pbar,
+            step=i,
+            loss=loss_value,
+            norm=norm_val,
+            tokens_per_second=tokens_per_second,
+            seconds_per_step=second_per_step,
+            adamw_lr=adamw_lr,
+            muon_lr=muon_lr,
+            dataloader_val=dataloader_val,
+            val_batches=val_batches,
+            now_str=now_str,
+        )
 
-        if i % 5000 == 0 and i > 0:
+
+        if i % 2048 == 0:
+            log_sample_output(model, pbar, step=i, now_str=now_str)
+
+        if i % 10_000 == 0 and i > 0:
             # Save model weights every 5000 steps
             checkpoint = {
                 "model_state_dict": model.state_dict(),
-                "opt_muon_state_dict": opt_muon.state_dict(),  # Save Muon
-                "opt_adamw_state_dict": opt_adamw.state_dict(),  # Save AdamW
+                "opt_muon_state_dict": opt_muon.state_dict(),
+                "opt_adamw_state_dict": opt_adamw.state_dict(),
                 "sched_muon_state_dict": sched_muon.state_dict(),
                 "sched_adamw_state_dict": sched_adamw.state_dict(),
                 "step": i,
@@ -278,7 +284,7 @@ def train(
             torch.save(
                 checkpoint, f"{checkpoints_dir}/checkpoint_{now_str}_step_{i}.pth"
             )
-            print(f"Model weights saved at step {i}.")
+            pbar.write(f"Model weights saved at step {i}.")
 
     print("Training complete.")
     torch.save(model.state_dict(), f"model_weights_{now_str}.pth")
@@ -287,9 +293,9 @@ def train(
 if __name__ == "__main__":
     model = FGPT(FGPTConfig())
     model.to("cuda")
-    accumulation_steps = 2
+    accumulation_steps = 6
     current_step = 0
-    max_steps = 300_000 + 1
+    max_steps = 250_000 + 1
     start_lr_adamw = 3e-4
     start_lr_muon = 0.03
     min_lr_ratio = 0.1
@@ -301,8 +307,8 @@ if __name__ == "__main__":
 
     # Scheduler Logic (Applied to both)
     total_updates = math.ceil(max_steps / accumulation_steps)
-    warmup_steps = total_updates * 0.01
-    plateau_steps = total_updates * 0.25
+    warmup_steps = total_updates * 0.04
+    plateau_steps = total_updates * 0.20
 
     # Create the lambdas for both optimizers
     scheduler_lambda = partial(
@@ -316,8 +322,8 @@ if __name__ == "__main__":
     sched_adamw = torch.optim.lr_scheduler.LambdaLR(opt_adamw, scheduler_lambda)
     sched_muon = torch.optim.lr_scheduler.LambdaLR(opt_muon, scheduler_lambda)
 
-    load_weights = False
-    prev_model_weights = "/path/to/checkpoint.pth"
+    load_weights = True
+    prev_model_weights = f"{checkpoints_dir}/checkpoint_{now_str}_step_10000.pth"
 
     if load_weights:
         print(f"Loading weights from {prev_model_weights}")

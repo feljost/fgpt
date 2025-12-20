@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-B = 64  # batch size
+B = 84  # batch size
 T = 1024  # sequence length / time
 
 
