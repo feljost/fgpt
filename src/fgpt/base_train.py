@@ -139,7 +139,7 @@ def configure_optimizers(
             # Add the weight to Muon
             for p in m.parameters():
                 # Linear weights are 2D, biases are 1D. Muon only wants weights.
-                if p.ndim == 2 and p.requires_grad:
+                if p.ndim == 2 and p.requires_grad and id(p) not in muon_param_ids:
                     muon_params.append(p)
                     muon_param_ids.add(id(p))
 

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from rotary_embedding_torch import RotaryEmbedding
 
 B = 84  # batch size
 T = 1024  # sequence length / time
@@ -32,6 +33,9 @@ class CausalSelfAttention(nn.Module):
         self.n_embd = config.n_embd
         self.head_dim = config.n_embd // config.n_head
 
+        # Initialize the RoPE function that will rotate the queries and keys
+        self.rotary_emb = RotaryEmbedding(dim=self.head_dim)
+
         # We combine Key, Query, and Value into a single linear layer for efficiency
         # This replaces the internal mechanics of nn.MultiheadAttention
         self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=False)
@@ -55,6 +59,10 @@ class CausalSelfAttention(nn.Module):
         k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
         q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
         v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
+
+        # Apply RoPE to queries and keys
+        q = self.rotary_emb.rotate_queries_or_keys(q)
+        k = self.rotary_emb.rotate_queries_or_keys(k)
 
         # PyTorch automatically selects the fastest kernel (FlashAttention V2, etc.)
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, is_causal=True)
@@ -113,8 +121,8 @@ class FGPT(nn.Module):
             dict(
                 # weight of token embeddings
                 wte=nn.Embedding(config.vocab_size, config.n_embd),
-                # weight of position embeddings
-                wpe=nn.Embedding(config.block_size, config.n_embd),
+                # # weight of position embeddings --> deleted to use RoPE
+                # wpe=nn.Embedding(config.block_size, config.n_embd),
                 # actual blocks -> transformer layers (h = hidden)
                 h=nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
                 # final layer norm
@@ -145,10 +153,16 @@ class FGPT(nn.Module):
             f"Cannot forward sequence of length {T} > block size {self.config.block_size}"
         )
 
-        pos = torch.arange(0, T, dtype=torch.long, device=idx.device)  # shape (T,)
-        pos_emb = self.transformer.wpe(pos)  # (T, n_emberd) position embeddings
+        # deleted to use RoPe
+        # pos = torch.arange(0, T, dtype=torch.long, device=idx.device)  # shape (T,)
+        # pos_emb = self.transformer.wpe(pos)  # (T, n_emberd) position embeddings
+        
         tok_emb = self.transformer.wte(idx)  # (B, T, n_embd) token embeddings
-        x = tok_emb + pos_emb  # (B, T, n_embd) sum of token and position embeddings
+        
+        # deleted to use RoPe
+        # x = tok_emb + pos_emb  # (B, T, n_embd) sum of token and position embeddings
+        
+        x = tok_emb  # (B, T, n_embd) token embeddings
 
         for block in self.transformer.h:
             x = block(x)
