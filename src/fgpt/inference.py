@@ -54,13 +54,13 @@ def model_inference(
         logits = logits[
             :, -1, :
         ]  # take the last token's logits (B, vocab_size) --> we only care about the next token
-        
+
         if top_k is not None:
             v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
-            logits[logits < v[:, [-1]]] = -float('Inf')
+            logits[logits < v[:, [-1]]] = -float("Inf")
 
         logits = logits / temperature  # apply temperature
-        
+
         probs = F.softmax(logits, dim=-1)  # convert to probabilities
         # skipped: temperature and top-k sampling
         next_token = torch.multinomial(

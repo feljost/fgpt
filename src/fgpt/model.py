@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-B = 64  # batch size
+B = 84  # batch size
 T = 1024  # sequence length / time
 
 
@@ -22,10 +22,11 @@ class FGPTConfig:
 
 class CausalSelfAttention(nn.Module):
     """Flashattn version of Causal Self-Attention module."""
+
     def __init__(self, config):
         super().__init__()
         assert config.n_embd % config.n_head == 0
-        
+
         # Key parameters
         self.n_head = config.n_head
         self.n_embd = config.n_embd
@@ -34,7 +35,7 @@ class CausalSelfAttention(nn.Module):
         # We combine Key, Query, and Value into a single linear layer for efficiency
         # This replaces the internal mechanics of nn.MultiheadAttention
         self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=False)
-        
+
         # Output projection
         self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
 
@@ -44,16 +45,16 @@ class CausalSelfAttention(nn.Module):
         # 1. Calculate Query, Key, Value
         # Result of c_attn is (B, T, 3 * C)
         qkv = self.c_attn(x)
-        
+
         # Split into q, k, v -> Each is (B, T, C)
         q, k, v = qkv.split(self.n_embd, dim=2)
 
         # 2. Reshape for Multi-head attention
         # We need to transform (B, T, C) -> (B, n_head, T, head_dim)
         # The 'transpose' is physically moving memory, putting heads in the 2nd dimension
-        k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2) # (B, nh, T, hs)
-        q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2) # (B, nh, T, hs)
-        v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2) # (B, nh, T, hs)
+        k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
+        q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
+        v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
 
         # PyTorch automatically selects the fastest kernel (FlashAttention V2, etc.)
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, is_causal=True)

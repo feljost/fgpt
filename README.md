@@ -10,16 +10,17 @@
 <br>
 </div>
 
-**FGPT** is a 712M parameter Language Model trained from scratch on the [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) dataset. This repository provides code for training, finetuning and inference. The purpose of the repo is not to create a SOTA model but rather to experiment and learn. The code is loosely based on Karpathy's youtube videos and Sebastian Raschka's LLM from scratch code. 
+**FGPT** is a 712M parameter Language Model trained from scratch on the [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) dataset. This repository provides code for training, finetuning and inference. The purpose of the repo is not to create a SOTA model but rather to experiment and learn. 
 
 ### Key Technical Implementations
 * **Architecture:** GPT-2 Large equivalent (712M Params, 32 layers, 24 heads) with Phi-3 style prompt tokens with GPT2 Tokenizer.
 * **Single GPU:** Trained on a single GPU to save money and make it reproducible for enthusiasts.
 * **Stochastic Sampling:** Random batch sampling during training (vs. sequential) to mitigate domain drift caused by long documents, resulting in a significantly lower validation loss.
+* **Muon Optimizer:** Fasters loss convergence to the use of Muon Optimizer (as used in a [nano-gpt speedrun](https://x.com/kellerjordan0/status/1842300916864844014))
 * **Instruction Tuning:** Fine-tuned on a composite dataset (Raschka + Alpaca-Cleaned) to enable 1-turn conversational capabilities.
 * **Evals:** Quantitative BaseModel eval on HellaSwag.
 
----
+
 
 ## Results
 
@@ -70,8 +71,9 @@ There is still a lot of room for improvement, but the model generally is able to
 
 As the instruction finetuning data is 1-turn only, the model will generally only be able to awnser one question at a time (somewhat) reliably.
 
----
 # Implementation Details
+
+FGPT follows the standard GPT-2 Large architecture (decoder-only transformer). It has a 32-layer depth with 24 attention heads and an embedding dimension of 1248. The vocabulary size is padded to 50,304 (the nearest multiple of 64 from the GPT2 tokenizer) and the context length is 1024 (dense attention).
 
 ## Base Model Training
 
@@ -151,12 +153,14 @@ python src/fgpt/inference.py
 - [Sebastian Rashke: Build an LLM from Scratch 7: Instruction Finetuning](https://www.youtube.com/watch?v=4yNswvhPWCQ)
 - [HF-Dataset: FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu)
 - [HF-Dataset: yahma/alpaca-cleaned](https://huggingface.co/datasets/yahma/alpaca-cleaned)
+- [Modded-NanoGPT: Nano GPT training speedruns](https://github.com/KellerJordan/modded-nanogpt)
 
 # TO DO's
 - ~Core Architecture: GPT-2 Large implementation~
 - ~Data Pipeline: Custom dataloader with leakage prevention~
 - ~Optimization: FlashAttention integration~
 - ~Optimization: Switch to Muon Optimizer~
+- ~Muon Optimizer: Improve training speed~
 - Scaling: Train on >10B tokens (Chinchilla optimality)
 - Deployment: HF Spaces demo
 - Alignment: Implement DPO or other RLHF 
