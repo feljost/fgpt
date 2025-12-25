@@ -5,22 +5,26 @@ import torch
 from tokenizer import tokenizer
 from fgpt.data.loaders import InstructDataLoader
 from fgpt.inference import load_model, model_inference
+from tqdm import tqdm
 
 
 log_dir = Path(__file__).resolve().parents[2] / "logs"
 filename_rabst = "simple_instruction_data.json"
-# filename_smoltalk = "smoltalk_instruction_response_pairs.json"
+filename_smoltalk = "smoltalk_instruction_response_pairs.json"
 filename_simple = "simple_qa_only.json"
 data_dir = Path(__file__).resolve().parents[2] / "instruction_data"
 
-with open(data_dir / filename_simple, "r", encoding="utf-8") as f:
+with open(data_dir / filename_smoltalk, "r", encoding="utf-8") as f:
     data = json.load(f)
 
-with open(data_dir / filename_rabst, "r", encoding="utf-8") as f:
+# with open(data_dir / filename_rabst, "r", encoding="utf-8") as f:
+#     data += json.load(f)
+
+with open(data_dir / filename_simple, "r", encoding="utf-8") as f:
     data += json.load(f)
 
-# with open(data_dir / filename_smoltalk, "r", encoding="utf-8") as f:
-#     data += json.load(f)
+
+
 
 print(f"Data loaded with {len(data)} entries")
 
@@ -35,11 +39,7 @@ print("Training set length:", len(train_data))
 print("Validation set length:", len(val_data))
 
 
-train_loader = InstructDataLoader(data=train_data, tokenizer=tokenizer, B=16)
-val_loader = InstructDataLoader(data=val_data, tokenizer=tokenizer, B=16)
-val_batches = [val_loader.next_batch() for _ in range(8)]  # prefetch a few validation
-
-model_weights_path = "/home/ubuntu/fgpt/model_weights_20251129_1850.pth"
+model_weights_path = "/home/ubuntu/fgpt/model_weights_20251220_1602.pth"
 model = load_model(model_weights_path=model_weights_path, device="cuda")
 
 print("Pre-training inference test:")
@@ -55,23 +55,37 @@ for prompt in prompts:
     print(f"Prompt: {prompt}\nResponse: {res}\n")
 
 
-batches_in_dataset = len(train_loader) // 16
-epochs = 2
-steps = batches_in_dataset * epochs
-lr = 1e-6  # small LR for finetuning
+lr = 1e-7  # small LR for finetuning
+accumulation_steps = 6
+batch_size = 82
+epochs = 1
 
 optimizer = torch.optim.AdamW(
     model.parameters(), lr=lr, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.1
 )
 
+
+train_loader = InstructDataLoader(data=train_data, tokenizer=tokenizer, B=batch_size)
+val_loader = InstructDataLoader(data=val_data, tokenizer=tokenizer, B=batch_size)
+val_batches = [val_loader.next_batch() for _ in range(32)]  # prefetch a few validation
+
+batches_in_dataset = len(train_loader) // batch_size
+steps = batches_in_dataset * epochs
+
 print(
-    f"Training Config\nLR: {lr}\nEpochs: {epochs}\nBatches per epoch: {batches_in_dataset}\nTotal steps: {steps}"
-)
-print("Starting training")
+    f"Training Config\nLR: {lr}\nEpochs: {epochs}\n"
+    f"Batches per epoch: {batches_in_dataset}\nTotal steps: {steps}\n"
+    "Starting training loop...")
+
 model.train()
 
-accumulation_steps = 4  # simulate larger batch size
-for i in range(steps):
+pbar = tqdm(
+    range(steps),
+    initial=0,
+    total=steps,
+    dynamic_ncols=True,
+)
+for i in pbar:
     start_time = time()
     x, y = train_loader.next_batch()
     x, y = x.to("cuda"), y.to("cuda")
@@ -95,8 +109,8 @@ for i in range(steps):
     torch.cuda.synchronize()
     end_time = time()
 
-    if i % 32 == 0:
-        # calculate validation loss every 16 steps
+    if i % 12 == 0:
+        # calculate validation loss every 32 steps
         model.eval()
         loss_vals = []
         for x_val, y_val in val_batches:
@@ -119,9 +133,9 @@ for i in range(steps):
             f"{log_dir}/instruct_training_metrics.jsonl", "a", encoding="utf-8"
         ) as jf:
             jf.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
-        print(f"{val_loss_avg} validation loss at step {i}")
+        pbar.write(f"{val_loss_avg} validation loss at step {i}")
 
-    print(
+    pbar.write(
         f"Step {i:04d} | Train loss = {loss_value:.4f} | batch_size = {list(x.size())} | "
         f"t = {end_time - start_time:.2f}s"
     )

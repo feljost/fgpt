@@ -1,11 +1,11 @@
 from typing import Literal
-from tokenizer import tokenizer
-from tokenizer import special_tokens
+from fgpt.tokenizer import tokenizer
+from fgpt.tokenizer import special_tokens
 import torch
 from torch.nn import functional as F
-from model import FGPT
-from model import FGPTConfig
-from model import load_model
+from fgpt.model import FGPT
+from fgpt.model import FGPTConfig
+from fgpt.model import load_model
 
 
 def model_inference(
