@@ -13,14 +13,13 @@
 **FGPT** is a 712M parameter Language Model trained from scratch on the [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) dataset. This repository provides code for training, finetuning and inference. The purpose of the repo is not to create a SOTA model but rather to experiment and learn. 
 
 ### Key Technical Implementations
+
 * **Architecture:** GPT-2 Large equivalent (712M Params, 32 layers, 24 heads) with Phi-3 style prompt tokens with GPT2 Tokenizer.
 * **Single GPU:** Trained on a single GPU to save money and make it reproducible for enthusiasts.
 * **Stochastic Sampling:** Random batch sampling during training (vs. sequential) to mitigate domain drift caused by long documents, resulting in a significantly lower validation loss.
 * **Muon Optimizer:** Fasters loss convergence to the use of Muon Optimizer (as used in [nano-gpt speedrun](https://x.com/kellerjordan0/status/1842300916864844014))
 * **Instruction Tuning:** Fine-tuned on a composite dataset (Raschka + Alpaca-Cleaned) to enable 1-turn conversational capabilities.
 * **Evals:** BaseModel eval on HellaSwag.
-
-
 
 ## Results
 
@@ -36,7 +35,7 @@ Every 10k steps I also evaluate the HellaSwag accuracy of the base model, which 
 
 ![HellaSwag Base Model](/report/images/hellaswag-base.png)
 
-#### Sample Outputs
+#### Sample Outputs (Instruct)
 
 The table below shows how the sample outputs evolved with the steps of training. You can see that the model learns rough grammar and does not mix up tokens that don't go together (for the most part). It also starts to stick to semantic topics better. The input text is "Once upon a time" after which the model generates the rest.
 
@@ -50,28 +49,24 @@ The table below shows how the sample outputs evolved with the steps of training.
 
 ### Instruction Finetuned Model
 
-Pretraining on the smol-smoltalk, alpaca-cleaned, and rashke datasets converged quickly. A total of YYY prompt - response pairs were used, where I only kept pairs where both prompt and response were shorter than 300 tokens max.
+Pretraining on the around 200k prompt - response paired converged quickly. The training was only done on pairs where both prompt and response were shorter than 300 tokens max.
 
 The loss convergence of the instruction finetuning is, unsurprisingly, much faster and the final loss much lower.
 
-<!-- Pre finetuning the model has no understanding of question-answering or assistant style conversation. The autocomplete outputs look like this:
+![SFT Loss Curves](/report/images/sft-loss.png)
+
+#### Sample Outputs (Instruct)
+
+The example output belows show that the model is able to create proper responses and seems to understand what is expected from it.
 
 | Prompt | Output |
 |--------|--------|
-| What is the capital of France? |  - it is the largest French Banknote yet notes are mint in - The IMF estimates France’s ... |
-| What is 2 + 2 | 2-2 (two-think french question book) 2-2 is pronounced as two two or wal-m ... | -->
-
-The example outputs show that the model is able to create proper responses and seems to understand what is expected from it.
-
-| Prompt | Output |
-|--------|--------|
-| What is the capital of France? | The capital of France is Paris |
-| What is 2 + 2? | 2 + 2 = 4. |
-| Define 'cat'. | A cat is a large mammal in the family Felidae, a family of cats. |
-| Say hello. | Hello World! |
-| Where is the White House located? | The White House is located at the intersection of Downtown New York and Alfred Street, which runs along the antero-parter of Main Street, which forms a southbound route from New York Harbor |
-| Who wrote 'Romeo and Juliet'? | The book 'Romeo and Juliet' by William Shakespeare was published in 1616. |
-| Summarize the plot of '1984' by George Orwell. | The plot of 1984 is a dystopian novel written by George Orwell. The story is set in the early 1980s and the protagonist, the protagonist, is a young, young person who is caught up in a dark, dreary world. As a result, there are many themes prevalent among the characters, which include betrayal, greed, and a need for power that is out of reach. The events and characters take shape, and the book is set in the future where the protagonist is confronted with a ... |
+| What is 2 + 2? | The answer is 2. |
+| Define 'cat'. | Define 'chicken'. Carbuncle 'cat'. Carbuncle 'chicken'. \n1. Cat: (noun) a domestic feline animal such as a domestic cat or a cat with domesticated genetics\n 2. Cat: (noun) a domesticated feline animal, typically with wild ancestor and specific traits |
+| Say hello. | Hi, my name is Jadar. I have two daughters, and I have been a teacher for five years. I have seen many students grow and change and develop. I have been teaching for a while now and I have noticed some big changes in the way my students interact with each other and the materials being used to teach content. I am really excited to share my expertise with you and try to find a solution. |
+| Where is the White House located? | The White House is located at 2121 South River Road in Washington, D.C. |
+| What is the boiling point of water? | The boiling point of water is 212º Fahrenheit at a pressure of 1 atmosphere. |
+| Summarize the plot of '1984' by George Orwell. | "1984" is a dystopian novel that is about the totalitarian government and how it controls its people. The author, George Orwell, wrote this short book in 1949. Its main theme is the fear of the masses and their ability to unite together in opposition to the government. In the book, the author describes the rise of totalitarianism and how it has taken control of society. He also shows how the government can become a dangerous ... |
 
 As (for now) the instruction finetuning data is 1-turn only, the model will generally only be able to awnser one question at a time (somewhat) reliably.
 
@@ -97,9 +92,9 @@ After finetuning, the model gives short and (sometimes) relevant answers and can
 
 The data used for finetuning is a mix out of 2 datasets found online:
 
+- [HuggingFaceTB/smol-smoltalk](https://huggingface.co/datasets/HuggingFaceTB/smol-smoltalk): A version of smoltalk by HF that is specifically for smaller model (makes up the bulk of the SFT data)
 - [Sebastian Rashkes Instruction Following Data](https://github.com/rasbt/LLMs-from-scratch/blob/main/ch07/02_dataset-utilities/instruction-examples.json): This helps as it is an extremely simple dataset containing very short examples. As our model is not very good with context longer than a couple of sentences, this helps the model stick to short and concise answer.
-- [yahma/alpaca-cleaned](https://huggingface.co/datasets/yahma/alpaca-cleaned): A cleaned instruction-answer type dataset that I limit to a maximum of 1000 characters for both prompt and answer 
-
+- [yahma/alpaca-cleaned](https://huggingface.co/datasets/yahma/alpaca-cleaned): A cleaned instruction-answer type dataset that I limit to a maximum of 1000 characters for both prompt and answer.
 
 
 ## Usage
@@ -168,5 +163,7 @@ python src/fgpt/inference.py
 - ~Optimization: Switch to Muon Optimizer~
 - ~Muon Optimizer: Improve training speed~
 - ~Scaling: Train on >14B tokens (Chinchilla optimality)~
+- SFT: Better selection of SFT datasets and instruction finetuning.
+- Chat-based evaluation: add instruction data on multiple choice questions & check hellaswag after instruction finetuning.
 - Deployment: HF Spaces demo
 - Alignment: Implement DPO or other RLHF-like adjustment
