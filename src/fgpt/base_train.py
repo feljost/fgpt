@@ -17,8 +17,8 @@ from fgpt.eval.hellaswag import iterate_examples
 from fgpt.eval.hellaswag import render_example
 from fgpt.eval.hellaswag import get_most_likely_row
 
-now_str = datetime.now().strftime("%Y%m%d_%H%M")
-# now_str = "20251220_1343"
+# now_str = datetime.now().strftime("%Y%m%d_%H%M")
+now_str = "20251220_1602"
 
 checkpoints_dir = Path(__file__).resolve().parents[2] / "checkpoints"
 logs_dir = Path(__file__).resolve().parents[2] / "logs"
@@ -149,7 +149,7 @@ def configure_optimizers(
             adamw_params.append(p)
 
     # 3. Init Optimizers
-    opt_muon = optim.Muon(muon_params, lr=muon_lr)
+    opt_muon = optim.Muon(muon_params, lr=muon_lr)  #  adjust_lr_fn="match_rms_adamw"
 
     opt_adamw = optim.AdamW(
         adamw_params,
@@ -161,6 +161,7 @@ def configure_optimizers(
     )
 
     return opt_muon, opt_adamw
+
 
 def get_cosine_schedule_with_warmup_and_plateau(
     step: int,
@@ -193,7 +194,6 @@ def get_cosine_schedule_with_warmup_and_plateau(
     return min_ratio + (1.0 - min_ratio) * cosine_decay
 
 
-
 def train(
     num_steps,
     model,
@@ -210,7 +210,12 @@ def train(
     print(f"Starting training for {num_steps} steps...")
     norm_val = 0
 
-    pbar = tqdm(range(current_step, num_steps), initial=current_step, total=num_steps, dynamic_ncols=True)
+    pbar = tqdm(
+        range(current_step, num_steps),
+        initial=current_step,
+        total=num_steps,
+        dynamic_ncols=True,
+    )
     for i in pbar:
         t0 = time.time()
         x, y = dataloader_train.next_batch()
@@ -227,7 +232,10 @@ def train(
         # perform optimizer step only at the end of an accumulation cycle
         if (i - current_step + 1) % accumulation_steps == 0:
             # clip grads before stepping
-            norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            # this schedule could be improved with a smoother transition
+            norm_clip = 0.5 if current_step < 250_000 else 1.0
+
+            norm = torch.nn.utils.clip_grad_norm_(model.parameters(), norm_clip)
             norm_val = float(norm)
 
             # Step BOTH optimizers
@@ -247,7 +255,6 @@ def train(
         tokens_per_second = B * T / (t1 - t0)
         second_per_step = t1 - t0
 
-
         adamw_lr = float(opt_adamw.param_groups[0]["lr"])
         muon_lr = float(opt_muon.param_groups[0]["lr"])
 
@@ -265,7 +272,6 @@ def train(
             val_batches=val_batches,
             now_str=now_str,
         )
-
 
         if i % 2048 == 0:
             log_sample_output(model, pbar, step=i, now_str=now_str)
@@ -293,9 +299,9 @@ def train(
 if __name__ == "__main__":
     model = FGPT(FGPTConfig())
     model.to("cuda")
-    accumulation_steps = 6
+    accumulation_steps = 6 # -> effective batch size of roughly 0.5m tokens
     current_step = 0
-    max_steps = 250_000 + 1
+    max_steps = 350_000 + 1
     start_lr_adamw = 3e-4
     start_lr_muon = 0.03
     min_lr_ratio = 0.1
@@ -307,8 +313,8 @@ if __name__ == "__main__":
 
     # Scheduler Logic (Applied to both)
     total_updates = math.ceil(max_steps / accumulation_steps)
-    warmup_steps = total_updates * 0.04
-    plateau_steps = total_updates * 0.20
+    warmup_steps = total_updates * 0.03
+    plateau_steps = 0
 
     # Create the lambdas for both optimizers
     scheduler_lambda = partial(
@@ -323,7 +329,7 @@ if __name__ == "__main__":
     sched_muon = torch.optim.lr_scheduler.LambdaLR(opt_muon, scheduler_lambda)
 
     load_weights = False
-    prev_model_weights = f"{checkpoints_dir}/checkpoint_{now_str}_step_10000.pth"
+    prev_model_weights = f"{checkpoints_dir}/checkpoint_{now_str}_step_250000.pth"
 
     if load_weights:
         print(f"Loading weights from {prev_model_weights}")
@@ -338,16 +344,35 @@ if __name__ == "__main__":
 
         opt_muon.load_state_dict(checkpoint["opt_muon_state_dict"])
         opt_adamw.load_state_dict(checkpoint["opt_adamw_state_dict"])
-        sched_muon.load_state_dict(checkpoint["sched_muon_state_dict"])
-        sched_adamw.load_state_dict(checkpoint["sched_adamw_state_dict"])
-        current_step = checkpoint["step"] + 1
+        # sched_muon.load_state_dict(checkpoint["sched_muon_state_dict"])
+        # sched_adamw.load_state_dict(checkpoint["sched_adamw_state_dict"])
+        # current_step = checkpoint["step"] + 1
+
+    # No warmup, just gentle continued training
+    for param_group in opt_muon.param_groups:
+        param_group['lr'] = 0.003
+
+    sched_muon = torch.optim.lr_scheduler.CosineAnnealingLR(
+        opt_muon,
+        T_max=16666,
+        eta_min=0.0005
+    )
+
+    for param_group in opt_adamw.param_groups:
+        param_group['lr'] = 3e-5
+
+    sched_adamw = torch.optim.lr_scheduler.CosineAnnealingLR(
+        opt_adamw,
+        T_max=16666,
+        eta_min=5e-6
+    )
 
     torch.set_float32_matmul_precision("medium")
     dataloader_train = BaseDataLoader(B, T, split="train")
     dataloader_val = BaseDataLoader(B, T, split="val")
 
     # Preload fixed validation samples once
-    val_batches = [dataloader_val.next_batch() for _ in range(64)]  # 64 mini-batches
+    val_batches = [dataloader_val.next_batch() for _ in range(128)]  # 64 mini-batches
 
     model = torch.compile(model)
 
