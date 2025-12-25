@@ -5,30 +5,22 @@ import pandas as pd
 from datasets import load_dataset
 from tqdm import tqdm
 
-dataset_name = "HuggingFaceTB/smoltalk"
+dataset_name = "HuggingFaceTB/smol-smoltalk"
 max_token_length = 300
 project_root_dir = Path(__file__).resolve().parents[3] / "instruction_data"
 filename = "smoltalk_instruction_response_pairs.json"
 filepath = project_root_dir / filename
 
-dataset = load_dataset(dataset_name, "all")
+dataset = load_dataset(dataset_name, "default")
 
 df = pd.DataFrame(dataset["train"])
-df = df.sample(frac=0.33, random_state=42).reset_index(
-    drop=True
-)  # we wont be needing all data
 
-two_turn_mask = df["messages"].apply(lambda x: len(x) == 2)
-df = df[two_turn_mask].reset_index(drop=True)
 
-# Extract instruction-response pairs
-
-for i in tqdm(range(df.shape[0])):
-    df.loc[i, "instruction"] = df.loc[i, "messages"][0]["content"]
-    df.loc[i, "output"] = df.loc[i, "messages"][1]["content"]
+# Extract first instruction-response pair
+df["instruction"] = df["messages"].apply(lambda x: x[0]["content"])
+df["output"] = df["messages"].apply(lambda x: x[1]["content"])
 
 pairs = df[["instruction", "output"]]
-
 
 # Count tokens in instruction and output (we don't want long pairs)
 def count_tokens(text):
