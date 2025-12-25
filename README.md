@@ -16,46 +16,52 @@
 * **Architecture:** GPT-2 Large equivalent (712M Params, 32 layers, 24 heads) with Phi-3 style prompt tokens with GPT2 Tokenizer.
 * **Single GPU:** Trained on a single GPU to save money and make it reproducible for enthusiasts.
 * **Stochastic Sampling:** Random batch sampling during training (vs. sequential) to mitigate domain drift caused by long documents, resulting in a significantly lower validation loss.
-* **Muon Optimizer:** Fasters loss convergence to the use of Muon Optimizer (as used in a [nano-gpt speedrun](https://x.com/kellerjordan0/status/1842300916864844014))
+* **Muon Optimizer:** Fasters loss convergence to the use of Muon Optimizer (as used in [nano-gpt speedrun](https://x.com/kellerjordan0/status/1842300916864844014))
 * **Instruction Tuning:** Fine-tuned on a composite dataset (Raschka + Alpaca-Cleaned) to enable 1-turn conversational capabilities.
-* **Evals:** Quantitative BaseModel eval on HellaSwag.
+* **Evals:** BaseModel eval on HellaSwag.
 
 
 
 ## Results
 
-For the base model I achieve ~2.8 cross entropy nats on the validation set, which is a good result and about what we can expect without many advanced tweaks. As we are only training on english educational content, our dataset is fairly homogeneous compared to multilanguage datasets. If we were to train on something like FineWeb-Edu2 (the multilingual version) or OpenWebText, we would expect a higher loss.
+### Base Model
 
-![Loss Curves](/report/images/train-loss.png)
+For the base model I achieve ~2.65 cross entropy nats on the validation set, which is a good result and about what we can expect without many advanced tweaks or a lot more compute time. As we are only training on english educational content, our dataset is fairly homogeneous compared to multilanguage datasets. If we were to train on something like FineWeb-Edu2 (the multilingual version) or OpenWebText, we would expect a higher loss.
 
-Every 10k steps I also evaluate the HellaSwag accuracy of the base model, which takes the logits of all responses (given the input) and evaluates which one is the most likely. The model scores ~35.8% which is significantly better than random guessing (=25%). Instruction finetuned version will follow.
+![Base training overview](/report/images/base-train-overview.png)
+
+The initial run was run with about 22B tokens, however after around 20B I observed a loss plateau. The loss plateau was acommpanied with strongly rising norms. To break through this plateau, the training continued with another 8B tokens, while learning rate was phased out to 0 (using cosine annealing schedule) and clipping the norms at 0.5 rather than 1.0. A correcting weight decay or even just a weight decaying schedule could improve this issue in future runs, as described by [Defazio 2025](https://arxiv.org/abs/2506.02285v2).
+
+Every 10k steps I also evaluate the HellaSwag accuracy of the base model, which takes the logits of all responses (given the input) and evaluates which one is the most likely. The model scores ~44% which is significantly better than random guessing (=25%).
 
 ![HellaSwag Base Model](/report/images/hellaswag-base.png)
 
-### Sample Outputs
-
-#### Base Model
+#### Sample Outputs
 
 The table below shows how the sample outputs evolved with the steps of training. You can see that the model learns rough grammar and does not mix up tokens that don't go together (for the most part). It also starts to stick to semantic topics better. The input text is "Once upon a time" after which the model generates the rest.
 
 | Step | Output |
 |------|--------|
-| 0    | _Once upon a time_ Once upon a timeLittle generally Libre affection torment Saga sword tributeerredarez QBraz fmt repeatedREPcade Geralomical Fiat ACTION situ RVvant advisors escalation screenshot Lines Issa randomly Improveashi Strip[/pi thesis oppressionRussiact demographics1965 refuel degridor |
-| 100'000 | _Once upon a time_ whereas Pluto is ramping up its backyard, it will be astonishing achievements, but the world is not yet at this point. To see them, check out the Moon's satellite images below: You can see moons in all four picture books. |
-| 250'000 | _Once upon a time_, a wealthy man buried his sons and daughters in woodland, farming geometric patterns, thus creating the food pattern I am after today. More than that, I want you to know to sacrifice your health (I fire you), beauty (II fire you) |
-| 400'000  | _Once upon a time_, there was one man lurking in a hedge. In those days, there was a very big storm. It was a really cold day. Even with the weather so dangerous, there was only a few people who could stay awake |
-| 500'000  | _Once upon a time_, there were three. One was alive, but a describes how he lives or moves around. There in the Evergreen state there lived a man who lived out his days, coming to the promise of happiness. But he pondered on how he connected |
+| 0    | _Once upon a time_ toolbar utterlyatti picked picked appropriations utterlyTex kickedatti addressingGR conflicting point conflictingumph distributingidential picked Berkeley inequalityspective identificationNation |
+| 100'000 | _Once upon a time_-dependent process in which the user moves to a position in a file, an array containing the object is called a buffer. The buffer is the part of the file that contains the file. |
+| 200'000 | _Once upon a time_, before anyone knew any better than the man to which he has contributed, he had the audacity of saying that he was in charge of the whole universe and that he did not want to leave the universe. |
+| 350'000  | _Once upon a time_, there was a man named Peter. He had a very big house with a garden and a big farm. He grew vegetables all year long and kept some cows as well. Peter was a very rich man. He had lots of money to pay for his ... |
 
-#### Instruction Finetuned Model
 
-Pre finetuning the model has no understanding of question-answering or assistant style conversation. The autocomplete outputs look like this:
+### Instruction Finetuned Model
+
+Pretraining on the smol-smoltalk, alpaca-cleaned, and rashke datasets converged quickly. A total of YYY prompt - response pairs were used, where I only kept pairs where both prompt and response were shorter than 300 tokens max.
+
+The loss convergence of the instruction finetuning is, unsurprisingly, much faster and the final loss much lower.
+
+<!-- Pre finetuning the model has no understanding of question-answering or assistant style conversation. The autocomplete outputs look like this:
 
 | Prompt | Output |
 |--------|--------|
 | What is the capital of France? |  - it is the largest French Banknote yet notes are mint in - The IMF estimates France’s ... |
-| What is 2 + 2 | 2-2 (two-think french question book) 2-2 is pronounced as two two or wal-m ... |
+| What is 2 + 2 | 2-2 (two-think french question book) 2-2 is pronounced as two two or wal-m ... | -->
 
-After finetuning the outputs are actually not too bad:
+The example outputs show that the model is able to create proper responses and seems to understand what is expected from it.
 
 | Prompt | Output |
 |--------|--------|
@@ -67,21 +73,19 @@ After finetuning the outputs are actually not too bad:
 | Who wrote 'Romeo and Juliet'? | The book 'Romeo and Juliet' by William Shakespeare was published in 1616. |
 | Summarize the plot of '1984' by George Orwell. | The plot of 1984 is a dystopian novel written by George Orwell. The story is set in the early 1980s and the protagonist, the protagonist, is a young, young person who is caught up in a dark, dreary world. As a result, there are many themes prevalent among the characters, which include betrayal, greed, and a need for power that is out of reach. The events and characters take shape, and the book is set in the future where the protagonist is confronted with a ... |
 
-There is still a lot of room for improvement, but the model generally is able to create proper answers and follow a 1-turn conversation.
-
-As the instruction finetuning data is 1-turn only, the model will generally only be able to awnser one question at a time (somewhat) reliably.
+As (for now) the instruction finetuning data is 1-turn only, the model will generally only be able to awnser one question at a time (somewhat) reliably.
 
 # Implementation Details
 
 FGPT follows the standard GPT-2 Large architecture (decoder-only transformer). It has a 32-layer depth with 24 attention heads and an embedding dimension of 1248. The vocabulary size is padded to 50,304 (the nearest multiple of 64 from the GPT2 tokenizer) and the context length is 1024 (dense attention).
 
-## Base Model Training
+## Pretraining
 
 The first step is training the model on a general text corpus of clean data. Just like Karpathy, I use Huggingface's [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) ataset which is an english-only high-quality text dataset. The dataset is fairly homogeneous, which makes it easier to train on than other commonly used datasets like OpenWebText.
 
 I make some changes to the dataloader functions in comparison to Karpathy's implementation. First, I split the FineWeb-Edu dataset at the document level, ensuring no document appears in both training and validation sets. This prevents data leakage and ensures a clean evaluation. Secondly, I also provide random batches of training data during training, and use a fixed validation batch throughout the training. The randomness of training data helps to avoid domain drift, as the documents of FineWeb-Edu can be very long and therefore the model just starts to memorize certain domains. This random approach was a game changer when trying to get the validation loss under 3.8 nats.
 
-## Instruction Finetuning
+## Supervised Finetuning (Instruction Finetuning)
 
 After the base model is trained, it is fine-tuned on a small instruction dataset so it behaves a bit more like a conversational assistant. The goal here isn’t to reach top performance but to help the model understand short question-answer patterns and simple user instructions.
 
@@ -154,6 +158,8 @@ python src/fgpt/inference.py
 - [HF-Dataset: FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu)
 - [HF-Dataset: yahma/alpaca-cleaned](https://huggingface.co/datasets/yahma/alpaca-cleaned)
 - [Modded-NanoGPT: Nano GPT training speedruns](https://github.com/KellerJordan/modded-nanogpt)
+- [Defazio 2025: Why Gradients Rapidly Increase Near the End of Training](https://arxiv.org/abs/2506.02285v2)
+- [Liu et al 2025: Muon is Scalable for LLM Training](https://arxiv.org/abs/2502.16982)
 
 # TO DO's
 - ~Core Architecture: GPT-2 Large implementation~
@@ -161,6 +167,6 @@ python src/fgpt/inference.py
 - ~Optimization: FlashAttention integration~
 - ~Optimization: Switch to Muon Optimizer~
 - ~Muon Optimizer: Improve training speed~
-- Scaling: Train on >10B tokens (Chinchilla optimality)
+- ~Scaling: Train on >14B tokens (Chinchilla optimality)~
 - Deployment: HF Spaces demo
-- Alignment: Implement DPO or other RLHF 
+- Alignment: Implement DPO or other RLHF-like adjustment
