@@ -57,7 +57,7 @@ The loss convergence of the instruction finetuning is, unsurprisingly, much fast
 
 #### Sample Outputs (Instruct)
 
-The example output belows show that the model is able to create proper responses and seems to understand what is expected from it.
+The example output belows show that the model is able to create proper responses and seems to understand what is expected from it... atleast sometimes :).
 
 | Prompt | Output |
 |--------|--------|
