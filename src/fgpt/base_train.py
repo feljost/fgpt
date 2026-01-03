@@ -13,9 +13,9 @@ from model import FGPTConfig
 from model import B, T
 from fgpt.data.loaders import BaseDataLoader
 from fgpt.inference import model_inference
-from fgpt.eval.hellaswag import iterate_examples
-from fgpt.eval.hellaswag import render_example
-from fgpt.eval.hellaswag import hellaswag_eval_base
+from fgpt.eval.hellaswag_base_eval import iterate_examples
+from fgpt.eval.hellaswag_base_eval import render_example
+from fgpt.eval.hellaswag_base_eval import hellaswag_eval_base
 
 # now_str = datetime.now().strftime("%Y%m%d_%H%M")
 now_str = "20251220_1602"

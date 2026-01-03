@@ -61,12 +61,12 @@ The example output belows show that the model is able to create proper responses
 
 | Prompt | Output |
 |--------|--------|
-| What is 2 + 2? | The answer is 2. |
-| Define 'cat'. | Define 'chicken'. Carbuncle 'cat'. Carbuncle 'chicken'. \n1. Cat: (noun) a domestic feline animal such as a domestic cat or a cat with domesticated genetics\n 2. Cat: (noun) a domesticated feline animal, typically with wild ancestor and specific traits |
-| Say hello. | Hi, my name is Jadar. I have two daughters, and I have been a teacher for five years. I have seen many students grow and change and develop. I have been teaching for a while now and I have noticed some big changes in the way my students interact with each other and the materials being used to teach content. I am really excited to share my expertise with you and try to find a solution. |
-| Where is the White House located? | The White House is located at 2121 South River Road in Washington, D.C. |
+| Define 'cat'. | A cat is a small, domesticated, predatory mammal.\nA cat is a domesticated, predatory mammal.\nA cat is a carnivorous animal who lives in the wild. |
+| Translate 'hello' to Spanish | To say hello in Spanish you would say 'hola' and you would usually use it as a greeting. Here is a list of the common ways to say hello in Spanish: ... |
+| Where is the White House located? | The White House is located in Washington, DC. It is in the Capitol Building, which is located on the National Mall in Washington DC. The White House is a presidential residence and serves as the U.S. government's home for the president. It is open and can be visited by visitors, but visitors can't see the president. |
 | What is the boiling point of water? | The boiling point of water is 212º Fahrenheit at a pressure of 1 atmosphere. |
-| Summarize the plot of '1984' by George Orwell. | "1984" is a dystopian novel that is about the totalitarian government and how it controls its people. The author, George Orwell, wrote this short book in 1949. Its main theme is the fear of the masses and their ability to unite together in opposition to the government. In the book, the author describes the rise of totalitarianism and how it has taken control of society. He also shows how the government can become a dangerous ... |
+| Summarize the plot of '1984' by George Orwell. | '1984' is a fictional account of a dystopian novel where a new society arises in the United States. The plot centers around a dystopian nation whose citizens have been indoctrinated into obedience through the use of propaganda and surveillance. ...
+| What is 2 + 2? | The answer is 2. |
 
 As (for now) the instruction finetuning data is 1-turn only, the model will generally only be able to awnser one question at a time (somewhat) reliably.
 
@@ -163,7 +163,8 @@ python src/fgpt/inference.py
 - ~Optimization: Switch to Muon Optimizer~
 - ~Muon Optimizer: Improve training speed~
 - ~Scaling: Train on >14B tokens (Chinchilla optimality)~
-- SFT: Better selection of SFT datasets and instruction finetuning.
+- Add RoPE and SwiGLU to the base model
+- SFT: Better selection of SFT datasets and instruction finetuning. (ongoing)
 - Chat-based evaluation: add instruction data on multiple choice questions & check hellaswag after instruction finetuning.
 - Deployment: HF Spaces demo
 - Alignment: Implement DPO or other RLHF-like adjustment

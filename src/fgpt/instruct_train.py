@@ -1,6 +1,7 @@
 from time import time
 from pathlib import Path
 import json
+import random
 import torch
 from tokenizer import tokenizer
 from fgpt.data.loaders import InstructDataLoader
@@ -12,18 +13,25 @@ log_dir = Path(__file__).resolve().parents[2] / "logs"
 filename_rabst = "simple_instruction_data.json"
 filename_smoltalk = "smoltalk_instruction_response_pairs.json"
 filename_simple = "simple_qa_only.json"
+filename_hellaswag = "hellaswag_train_sft.jsonl"
 data_dir = Path(__file__).resolve().parents[2] / "instruction_data"
 
 with open(data_dir / filename_smoltalk, "r", encoding="utf-8") as f:
     data = json.load(f)
 
-# with open(data_dir / filename_rabst, "r", encoding="utf-8") as f:
-#     data += json.load(f)
+with open(data_dir / filename_rabst, "r", encoding="utf-8") as f:
+    data += json.load(f)
 
 with open(data_dir / filename_simple, "r", encoding="utf-8") as f:
     data += json.load(f)
 
+with open(data_dir / filename_hellaswag, "r", encoding="utf-8") as f:
+    data += json.load(f)
 
+# shuffle data for a random train/validation split (deterministic seed)
+seed = 42
+random.seed(seed)
+random.shuffle(data)
 
 
 print(f"Data loaded with {len(data)} entries")
@@ -56,8 +64,8 @@ for prompt in prompts:
 
 
 lr = 1e-7  # small LR for finetuning
-accumulation_steps = 6
-batch_size = 82
+accumulation_steps = 64
+batch_size = 16
 epochs = 1
 
 optimizer = torch.optim.AdamW(
@@ -74,7 +82,7 @@ steps = batches_in_dataset * epochs
 
 print(
     f"Training Config\nLR: {lr}\nEpochs: {epochs}\n"
-    f"Batches per epoch: {batches_in_dataset}\nTotal steps: {steps}\n"
+    f"Batches per epoch: {batches_in_dataset}\nTotal optimizer steps: {steps//accumulation_steps}\n"
     "Starting training loop...")
 
 model.train()
@@ -109,7 +117,7 @@ for i in pbar:
     torch.cuda.synchronize()
     end_time = time()
 
-    if i % 12 == 0:
+    if i % accumulation_steps*2 == 0:
         # calculate validation loss every 32 steps
         model.eval()
         loss_vals = []
