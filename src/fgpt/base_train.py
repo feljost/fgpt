@@ -17,8 +17,8 @@ from fgpt.eval.hellaswag_base_eval import iterate_examples
 from fgpt.eval.hellaswag_base_eval import render_example
 from fgpt.eval.hellaswag_base_eval import hellaswag_eval_base
 
-# now_str = datetime.now().strftime("%Y%m%d_%H%M")
-now_str = "20251220_1602"
+now_str = datetime.now().strftime("%Y%m%d_%H%M")
+# now_str = "20251220_1602"
 
 checkpoints_dir = Path(__file__).resolve().parents[2] / "checkpoints"
 logs_dir = Path(__file__).resolve().parents[2] / "logs"
@@ -273,7 +273,7 @@ def train(
 if __name__ == "__main__":
     model = FGPT(FGPTConfig())
     model.to("cuda")
-    accumulation_steps = 6 # -> effective batch size of roughly 0.5m tokens
+    accumulation_steps = 32 # -> effective batch size of roughly 0.5m tokens
     current_step = 0
     max_steps = 350_000 + 1
     start_lr_adamw = 3e-4
@@ -321,25 +321,6 @@ if __name__ == "__main__":
         # sched_muon.load_state_dict(checkpoint["sched_muon_state_dict"])
         # sched_adamw.load_state_dict(checkpoint["sched_adamw_state_dict"])
         # current_step = checkpoint["step"] + 1
-
-    # No warmup, just gentle continued training
-    for param_group in opt_muon.param_groups:
-        param_group['lr'] = 0.003
-
-    sched_muon = torch.optim.lr_scheduler.CosineAnnealingLR(
-        opt_muon,
-        T_max=16666,
-        eta_min=0.0005
-    )
-
-    for param_group in opt_adamw.param_groups:
-        param_group['lr'] = 3e-5
-
-    sched_adamw = torch.optim.lr_scheduler.CosineAnnealingLR(
-        opt_adamw,
-        T_max=16666,
-        eta_min=5e-6
-    )
 
     torch.set_float32_matmul_precision("medium")
     dataloader_train = BaseDataLoader(B, T, split="train")
