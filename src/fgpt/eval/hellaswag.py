@@ -150,3 +150,34 @@ def get_most_likely_row(tokens, mask, logits):
     # the one with the lowest loss should be the most likely
     pred_norm = avg_loss.argmin().item()
     return pred_norm
+
+def hellaswag_eval_base(model, pbar = None):
+    """Evaluates a PyTorch model on the HellaSwag validation set
+    and logs accuracy metrics to a JSONL file."""
+    # evaluate on hellaswag
+    
+    if pbar:
+        pbar.write("Running Hellaswag eval")
+    else:
+        print("Running Hellaswag eval")
+    model.eval()
+    num_correct_norm = 0
+    num_total = 0
+    for example in iterate_examples("val"):
+        _, tokens, mask, label = render_example(example)
+        tokens = tokens.to("cuda")
+        mask = mask.to("cuda")
+        # get the logits
+        with torch.no_grad():
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                logits, _ = model(tokens)
+            pred_norm = get_most_likely_row(tokens, mask, logits)
+        num_total += 1
+        num_correct_norm += int(pred_norm == label)
+    acc_norm = num_correct_norm / num_total
+    model.train()
+    if pbar:
+        pbar.write(f"HellaSwag accuracy: {acc_norm:.4f}")
+    else:
+        print(f"HellaSwag accuracy: {acc_norm:.4f}")
+    return acc_norm

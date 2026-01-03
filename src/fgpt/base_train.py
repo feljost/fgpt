@@ -15,39 +15,13 @@ from fgpt.data.loaders import BaseDataLoader
 from fgpt.inference import model_inference
 from fgpt.eval.hellaswag import iterate_examples
 from fgpt.eval.hellaswag import render_example
-from fgpt.eval.hellaswag import get_most_likely_row
+from fgpt.eval.hellaswag import hellaswag_eval_base
 
 # now_str = datetime.now().strftime("%Y%m%d_%H%M")
 now_str = "20251220_1602"
 
 checkpoints_dir = Path(__file__).resolve().parents[2] / "checkpoints"
 logs_dir = Path(__file__).resolve().parents[2] / "logs"
-
-
-def hellaswag_eval(model, pbar):
-    """Evaluates a PyTorch model on the HellaSwag validation set
-    and logs accuracy metrics to a JSONL file."""
-    # evaluate on hellaswag
-    pbar.write("Running Hellaswag eval")
-    model.eval()
-    num_correct_norm = 0
-    num_total = 0
-    for example in iterate_examples("val"):
-        _, tokens, mask, label = render_example(example)
-        tokens = tokens.to("cuda")
-        mask = mask.to("cuda")
-        # get the logits
-        with torch.no_grad():
-            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                logits, _ = model(tokens)
-            pred_norm = get_most_likely_row(tokens, mask, logits)
-        num_total += 1
-        num_correct_norm += int(pred_norm == label)
-    acc_norm = num_correct_norm / num_total
-    model.train()
-    pbar.write(f"HellaSwag accuracy: {acc_norm:.4f}")
-    return acc_norm
-
 
 def log_train_metrics(
     model,
@@ -84,7 +58,7 @@ def log_train_metrics(
         metrics["val_loss"] = calculate_val_loss(model, val_batches)
 
     if step % 10_000 == 0:
-        metrics["hellaswag_acc"] = hellaswag_eval(model, pbar)
+        metrics["hellaswag_acc"] = hellaswag_eval_base(model, pbar)
 
     with open(f"{logs_dir}/train_metrics_{now_str}.jsonl", "a") as f:
         f.write(json.dumps(metrics) + "\n")
