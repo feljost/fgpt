@@ -2,8 +2,9 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from rotary_embedding_torch import RotaryEmbedding
 
-B = 84  # batch size
+B = 16  # batch size
 T = 1024  # sequence length / time
 
 
@@ -39,6 +40,9 @@ class CausalSelfAttention(nn.Module):
         # Output projection
         self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
 
+        # rotary embedding object
+        self.rotary_emb = RotaryEmbedding(dim = self.head_dim)
+
     def forward(self, x):
         B, T, C = x.size()
 
@@ -55,6 +59,11 @@ class CausalSelfAttention(nn.Module):
         k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
         q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
         v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
+
+        # 3. Apply rotary embeddings to Q and K
+        # rotary_embedding_torch expects shape (B, n_head, T, head_dim)
+        q = self.rotary_emb.rotate_queries_or_keys(q)
+        k = self.rotary_emb.rotate_queries_or_keys(k)
 
         # PyTorch automatically selects the fastest kernel (FlashAttention V2, etc.)
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, is_causal=True)
@@ -114,7 +123,7 @@ class FGPT(nn.Module):
                 # weight of token embeddings
                 wte=nn.Embedding(config.vocab_size, config.n_embd),
                 # weight of position embeddings
-                wpe=nn.Embedding(config.block_size, config.n_embd),
+                # wpe=nn.Embedding(config.block_size, config.n_embd),
                 # actual blocks -> transformer layers (h = hidden)
                 h=nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
                 # final layer norm
@@ -145,10 +154,12 @@ class FGPT(nn.Module):
             f"Cannot forward sequence of length {T} > block size {self.config.block_size}"
         )
 
-        pos = torch.arange(0, T, dtype=torch.long, device=idx.device)  # shape (T,)
-        pos_emb = self.transformer.wpe(pos)  # (T, n_emberd) position embeddings
-        tok_emb = self.transformer.wte(idx)  # (B, T, n_embd) token embeddings
-        x = tok_emb + pos_emb  # (B, T, n_embd) sum of token and position embeddings
+        # pos = torch.arange(0, T, dtype=torch.long, device=idx.device)  # shape (T,)
+        # pos_emb = self.transformer.wpe(pos)  # (T, n_emberd) position embeddings
+        # tok_emb = self.transformer.wte(idx)  # (B, T, n_embd) token embeddings
+        # x = tok_emb + pos_emb  # (B, T, n_embd) sum of token and position embeddings
+
+        x = self.transformer.wte(idx)  # (B, T, n_embd) token embeddings
 
         for block in self.transformer.h:
             x = block(x)
