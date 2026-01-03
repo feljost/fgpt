@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 from rotary_embedding_torch import RotaryEmbedding
 
-B = 16  # batch size
+B = 32  # batch size
 T = 1024  # sequence length / time
 
 
@@ -77,24 +77,21 @@ class CausalSelfAttention(nn.Module):
 
 
 class MLP(nn.Module):
+    """SwiGLU MLP with fused gate and up projection."""
     def __init__(self, config):
         super().__init__()
-        # MLP consists of two linear layers with a GELU activation in between
-
-        self.c_fc = nn.Linear(
-            config.n_embd, 4 * config.n_embd
-        )  # "context to feed-forward"
-        # no need for approximate version as used by GPT-2 (it used to be slow, but now it's fast)
-        self.gelu = nn.GELU()
-        self.c_proj = nn.Linear(
-            4 * config.n_embd, config.n_embd
-        )  # "context projection"
+        hidden_dim = int(8 / 3 * config.n_embd)
+        hidden_dim = ((hidden_dim + 255) // 256) * 256
+        
+        # Fused gate and up projection
+        self.w13 = nn.Linear(config.n_embd, 2 * hidden_dim, bias=False)
+        self.w2 = nn.Linear(hidden_dim, config.n_embd, bias=False)
+        self.hidden_dim = hidden_dim
 
     def forward(self, x):
-        x = self.c_fc(x)
-        x = self.gelu(x)
-        x = self.c_proj(x)
-        return x
+        w13_out = self.w13(x)
+        w1_out, w3_out = w13_out.split(self.hidden_dim, dim=-1)
+        return self.w2(F.silu(w1_out) * w3_out)
 
 
 class Block(nn.Module):
