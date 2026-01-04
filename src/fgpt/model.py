@@ -97,9 +97,9 @@ class MLP(nn.Module):
 class Block(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.ln_1 = nn.LayerNorm(config.n_embd)
+        self.ln_1 = nn.RMSNorm(config.n_embd)
         self.attn = CausalSelfAttention(config)
-        self.ln_2 = nn.LayerNorm(config.n_embd)
+        self.ln_2 = nn.RMSNorm(config.n_embd)
         self.mlp = MLP(config)
 
     def forward(self, x):
@@ -119,12 +119,10 @@ class FGPT(nn.Module):
             dict(
                 # weight of token embeddings
                 wte=nn.Embedding(config.vocab_size, config.n_embd),
-                # weight of position embeddings
-                # wpe=nn.Embedding(config.block_size, config.n_embd),
-                # actual blocks -> transformer layers (h = hidden)
+                # wpe not needed as we are using RoPE
                 h=nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
-                # final layer norm
-                ln_f=nn.LayerNorm(config.n_embd),
+                # final normalization
+                ln_f=nn.RMSNorm(config.n_embd),
             )
         )
         # actual head that will output logits for each token in the vocabulary
