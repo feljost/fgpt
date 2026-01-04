@@ -60,7 +60,7 @@ def log_train_metrics(
     if step % 10_000 == 0:
         metrics["hellaswag_acc"] = hellaswag_eval_base(model, pbar)
 
-    if step % 2 == 0:
+    if step % 12 == 0:
         with open(f"{logs_dir}/train_metrics_{now_str}.jsonl", "a") as f:
             f.write(json.dumps(metrics) + "\n")
 
@@ -179,8 +179,8 @@ def train(
     opt_adamw,
     sched_muon,
     sched_adamw,
-    current_step=0,
-    accumulation_steps=5,
+    current_step,
+    accumulation_steps,
 ):
     print(f"Starting training for {num_steps} steps...")
     norm_val = 0
@@ -274,7 +274,7 @@ def train(
 if __name__ == "__main__":
     model = FGPT(FGPTConfig())
     model.to("cuda")
-    accumulation_steps = 16 # -> effective batch size of roughly 0.5m tokens
+    accumulation_steps = 12 # -> effective batch size of roughly 0.5m tokens
     current_step = 0
     max_steps = 500_000 + 1
     start_lr_adamw = 3e-4

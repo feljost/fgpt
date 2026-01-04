@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 from rotary_embedding_torch import RotaryEmbedding
 
-B = 32  # batch size
+B = 40  # batch size
 T = 1024  # sequence length / time
 
 
