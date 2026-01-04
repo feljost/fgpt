@@ -14,7 +14,7 @@
 
 ### Key Technical Implementations
 
-* **Architecture:** GPT-2 Large equivalent (712M Params, 32 layers, 24 heads) with Phi-3 style prompt tokens with GPT2 Tokenizer.
+* **Architecture:** GPT-2 Large aspect ratio, (712M Params, 32 layers, 24 heads), but with modern touches such as SwiGLU, RoPE, and RMSNorm.  It uses Phi-3 Style prompt templates and GPT2 Tokenizer.
 * **Single GPU:** Trained on a single GPU to save money and make it reproducible for enthusiasts.
 * **Stochastic Sampling:** Random batch sampling during training (vs. sequential) to mitigate domain drift caused by long documents, resulting in a significantly lower validation loss.
 * **Muon Optimizer:** Fasters loss convergence to the use of Muon Optimizer (as used in [nano-gpt speedrun](https://x.com/kellerjordan0/status/1842300916864844014))
