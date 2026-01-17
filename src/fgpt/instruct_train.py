@@ -47,7 +47,7 @@ print("Training set length:", len(train_data))
 print("Validation set length:", len(val_data))
 
 
-model_weights_path = "/home/ubuntu/fgpt/model_weights_20251220_1602.pth"
+model_weights_path = "/home/ubuntu/fgpt/model_weights_20260108_2116.pth"
 model = load_model(model_weights_path=model_weights_path, device="cuda")
 
 print("Pre-training inference test:")
@@ -63,7 +63,7 @@ for prompt in prompts:
     print(f"Prompt: {prompt}\nResponse: {res}\n")
 
 
-lr = 1e-7  # small LR for finetuning
+lr = 1e-6  # small LR for finetuning
 accumulation_steps = 64
 batch_size = 16
 epochs = 1

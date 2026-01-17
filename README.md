@@ -31,7 +31,7 @@ For the base model I achieve ~2.65 cross entropy nats on the validation set, whi
 
 The initial run was run with about 22B tokens, however after around 20B I observed a loss plateau. The loss plateau was acommpanied with strongly rising norms. To break through this plateau, the training continued with another 8B tokens, while learning rate was phased out to 0 (using cosine annealing schedule) and clipping the norms at 0.5 rather than 1.0. A correcting weight decay or even just a weight decaying schedule could improve this issue in future runs, as described by [Defazio 2025](https://arxiv.org/abs/2506.02285v2).
 
-Every 10k steps I also evaluate the HellaSwag accuracy of the base model, which takes the logits of all responses (given the input) and evaluates which one is the most likely. The model scores ~44% which is significantly better than random guessing (=25%).
+Every 25k micro-steps I evaluate the HellaSwag accuracy of the base model, which takes the logits of all responses (given the input) and picks the most likely response. The model scores ~49% which is significantly better than random guessing (=25%).
 
 ![HellaSwag Base Model](/report/images/hellaswag-base.png)
 
@@ -45,6 +45,7 @@ The table below shows how the sample outputs evolved with the steps of training.
 | 100'000 | _Once upon a time_ they were called back to life after the fact, and their role was so important that it was a matter of life or death that the first of the great great empires, which in the past had been founded by an absolute number of states and individuals |
 | 500'000 | _Once upon a time_, a very important man died, and the man went by the surname of his grandfather. In that case the man became the father of his grandfather, the son of his grandfather, and the brother of his mother. If the man's father could not" |
 | 1'000'000 | _Once upon a time_, we were all peasants, but we grew up and became teachers, lawyers, politicians, writers and scientists, we learned the arts, science, religion, history and even how to ride a horse.\nWe lived, we worked, we loved, |
+| 1'350'000 | _Once upon a time_, the earth was a perfect paradise. The trees were growing as long as they had a right to do so. They had everything they needed to survive. Their only concern was whether they will have enough food to eat throughout the year, or how many |
 
 
 ### Instruction Finetuned Model
@@ -57,19 +58,19 @@ The loss convergence of the instruction finetuning is, unsurprisingly, much fast
 
 #### Sample Outputs (Instruct)
 
-> [!NOTE]
-> This section is outdated and needs to be updated. The outputs below are from a previous run
-
 The example output belows show that the model is able to create proper responses and seems to understand what is expected from it... atleast sometimes :).
 
 | Prompt | Output |
 |--------|--------|
-| Define 'cat'. | A cat is a small, domesticated, predatory mammal.\nA cat is a domesticated, predatory mammal.\nA cat is a carnivorous animal who lives in the wild. |
-| Translate 'hello' to Spanish | To say hello in Spanish you would say 'hola' and you would usually use it as a greeting. Here is a list of the common ways to say hello in Spanish: ... |
-| Where is the White House located? | The White House is located in Washington, DC. It is in the Capitol Building, which is located on the National Mall in Washington DC. The White House is a presidential residence and serves as the U.S. government's home for the president. It is open and can be visited by visitors, but visitors can't see the president. |
-| What is the boiling point of water? | The boiling point of water is 212º Fahrenheit at a pressure of 1 atmosphere. |
+| What is the capital of France? | Paris is the capital of France. |
+| Say hello. | Hello, how are you? |
+| Define 'cat'. | The word 'cat' is a noun that refers to an animal that belongs to the felidae family and is characterized by a pointed facial feature with a pointed tail and short body. It is also known as the domestic cat, or simply 'cat', although the former term is considered outdated and is considered incorrect. |
+| Where is the White House located? | The White House is located in Washington, DC, America. |
+| What is the boiling point of water? | The boiling point of water is about 100 degrees C (212 f). |
 | Summarize the plot of '1984' by George Orwell. | '1984' is a fictional account of a dystopian novel where a new society arises in the United States. The plot centers around a dystopian nation whose citizens have been indoctrinated into obedience through the use of propaganda and surveillance. ...
 | What is 2 + 2? | The answer is 2. |
+| Tell me a fun fact about Italy | Italy is known for its rich history and heritage. Its culture is renowned for its ancient city-states, the Renaissance, and its unique gastronomy. The country is also known for its wine, olive oil, and other agricultural products. |
+| What color is the sky? | The sky is blue.\nI don't think the sky is blue, I feel like the sky should be blue |
 
 As (for now) the instruction finetuning data is 1-turn only, the model will generally only be able to awnser one question at a time (somewhat) reliably.
 
@@ -93,7 +94,7 @@ After the base model is trained, it is fine-tuned on a small instruction dataset
 
 After finetuning, the model gives short and (sometimes) relevant answers and can handle simple 1-turn conversations.
 
-The data used for finetuning is a mix out of 2 datasets found online:
+The data used for finetuning is a mix out of 3 datasets found online:
 
 - [HuggingFaceTB/smol-smoltalk](https://huggingface.co/datasets/HuggingFaceTB/smol-smoltalk): A version of smoltalk by HF that is specifically for smaller model (makes up the bulk of the SFT data)
 - [Sebastian Rashkes Instruction Following Data](https://github.com/rasbt/LLMs-from-scratch/blob/main/ch07/02_dataset-utilities/instruction-examples.json): This helps as it is an extremely simple dataset containing very short examples. As our model is not very good with context longer than a couple of sentences, this helps the model stick to short and concise answer.
