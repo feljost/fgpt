@@ -19,7 +19,7 @@ import random
 local_dir = "edu_fineweb100B"
 remote_name = "sample-100BT"
 shard_size = 100_000_000
-val_fraction = 0.05
+val_fraction = 0.10
 
 shuffle_seed = 42
 
@@ -29,7 +29,7 @@ DATA_CACHE_DIR = project_root_dir / local_dir
 
 os.makedirs(DATA_CACHE_DIR, exist_ok=True)
 
-fw = load_dataset("HuggingFaceFW/fineweb-edu", name=remote_name, split="train")
+fw = load_dataset("HuggingFaceFW/fineweb-edu", name=remote_name, split="train", streaming=True)
 
 
 fw = fw.shuffle(seed=shuffle_seed)  # shuffle dataset for better mix

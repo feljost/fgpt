@@ -54,14 +54,15 @@ def log_train_metrics(
         "muon_lr": muon_lr,
         "timestamp": datetime.now().isoformat(),
     }
-    if step % 256 == 0:
+    if step % 512 == 0:
         metrics["val_loss"] = calculate_val_loss(model, val_batches)
 
-    if step % 10_000 == 0:
+    if step % 25_000 == 0:
         metrics["hellaswag_acc"] = hellaswag_eval_base(model, pbar)
 
-    with open(f"{logs_dir}/train_metrics_{now_str}.jsonl", "a") as f:
-        f.write(json.dumps(metrics) + "\n")
+    if step % 12 == 0 or step % 25_000 == 0 or step % 256 == 0:
+        with open(f"{logs_dir}/train_metrics_{now_str}.jsonl", "a") as f:
+            f.write(json.dumps(metrics) + "\n")
 
 
 def log_sample_output(model, pbar, step, now_str=now_str):
@@ -178,8 +179,8 @@ def train(
     opt_adamw,
     sched_muon,
     sched_adamw,
-    current_step=0,
-    accumulation_steps=5,
+    current_step,
+    accumulation_steps,
 ):
     print(f"Starting training for {num_steps} steps...")
     norm_val = 0
@@ -207,7 +208,7 @@ def train(
         if (i - current_step + 1) % accumulation_steps == 0:
             # clip grads before stepping
             # this schedule could be improved with a smoother transition
-            norm_clip = 0.5 if current_step < 250_000 else 1.0
+            norm_clip = 0.5 if current_step < 350_000 else 1.0
 
             norm = torch.nn.utils.clip_grad_norm_(model.parameters(), norm_clip)
             norm_val = float(norm)
@@ -273,12 +274,12 @@ def train(
 if __name__ == "__main__":
     model = FGPT(FGPTConfig())
     model.to("cuda")
-    accumulation_steps = 32 # -> effective batch size of roughly 0.5m tokens
+    accumulation_steps = 12 # -> effective batch size of roughly 0.5m tokens
     current_step = 0
-    max_steps = 350_000 + 1
-    start_lr_adamw = 3e-4
-    start_lr_muon = 0.03
-    min_lr_ratio = 0.1
+    max_steps = 1_000_000 + 1
+    start_lr_adamw = 2e-4
+    start_lr_muon = 0.02
+    min_lr_ratio = 0.05
 
     # Optimizer Setup
     opt_muon, opt_adamw = configure_optimizers(
@@ -287,7 +288,7 @@ if __name__ == "__main__":
 
     # Scheduler Logic (Applied to both)
     total_updates = math.ceil(max_steps / accumulation_steps)
-    warmup_steps = total_updates * 0.03
+    warmup_steps = total_updates * 0.01
     plateau_steps = 0
 
     # Create the lambdas for both optimizers
@@ -318,8 +319,8 @@ if __name__ == "__main__":
 
         opt_muon.load_state_dict(checkpoint["opt_muon_state_dict"])
         opt_adamw.load_state_dict(checkpoint["opt_adamw_state_dict"])
-        # sched_muon.load_state_dict(checkpoint["sched_muon_state_dict"])
-        # sched_adamw.load_state_dict(checkpoint["sched_adamw_state_dict"])
+        sched_muon.load_state_dict(checkpoint["sched_muon_state_dict"])
+        sched_adamw.load_state_dict(checkpoint["sched_adamw_state_dict"])
         # current_step = checkpoint["step"] + 1
 
     torch.set_float32_matmul_precision("medium")
@@ -327,7 +328,7 @@ if __name__ == "__main__":
     dataloader_val = BaseDataLoader(B, T, split="val")
 
     # Preload fixed validation samples once
-    val_batches = [dataloader_val.next_batch() for _ in range(128)]  # 64 mini-batches
+    val_batches = [dataloader_val.next_batch() for _ in range(64)]  # 64 mini-batches
 
     model = torch.compile(model)
 

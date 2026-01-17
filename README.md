@@ -10,16 +10,16 @@
 <br>
 </div>
 
-**FGPT** is a 712M parameter Language Model trained from scratch on the [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) dataset. This repository provides code for training, finetuning and inference. The purpose of the repo is not to create a SOTA model but rather to experiment and learn. 
+**FGPT** is a 600M parameter Language Model trained from scratch on the [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) dataset. This repository provides code for training, finetuning and inference. The purpose of the repo is not to create a SOTA model but rather to experiment and learn. 
 
 ### Key Technical Implementations
 
-* **Architecture:** GPT-2 Large equivalent (712M Params, 32 layers, 24 heads) with Phi-3 style prompt tokens with GPT2 Tokenizer.
+* **Architecture:** GPT-2 Large aspect ratio, (600M Params, 32 layers, 24 heads), but with modern touches such as SwiGLU, RoPE, and RMSNorm.  It uses Phi-3 Style prompt templates and GPT2 Tokenizer.
 * **Single GPU:** Trained on a single GPU to save money and make it reproducible for enthusiasts.
 * **Stochastic Sampling:** Random batch sampling during training (vs. sequential) to mitigate domain drift caused by long documents, resulting in a significantly lower validation loss.
 * **Muon Optimizer:** Fasters loss convergence to the use of Muon Optimizer (as used in [nano-gpt speedrun](https://x.com/kellerjordan0/status/1842300916864844014))
 * **Instruction Tuning:** Fine-tuned on a composite dataset (Raschka + Alpaca-Cleaned) to enable 1-turn conversational capabilities.
-* **Evals:** BaseModel eval on HellaSwag.
+* **Evals:** BaseModel evaluated on HellaSwag.
 
 ## Results
 
@@ -42,9 +42,9 @@ The table below shows how the sample outputs evolved with the steps of training.
 | Step | Output |
 |------|--------|
 | 0    | _Once upon a time_ toolbar utterlyatti picked picked appropriations utterlyTex kickedatti addressingGR conflicting point conflictingumph distributingidential picked Berkeley inequalityspective identificationNation |
-| 100'000 | _Once upon a time_-dependent process in which the user moves to a position in a file, an array containing the object is called a buffer. The buffer is the part of the file that contains the file. |
-| 200'000 | _Once upon a time_, before anyone knew any better than the man to which he has contributed, he had the audacity of saying that he was in charge of the whole universe and that he did not want to leave the universe. |
-| 350'000  | _Once upon a time_, there was a man named Peter. He had a very big house with a garden and a big farm. He grew vegetables all year long and kept some cows as well. Peter was a very rich man. He had lots of money to pay for his ... |
+| 100'000 | _Once upon a time_ they were called back to life after the fact, and their role was so important that it was a matter of life or death that the first of the great great empires, which in the past had been founded by an absolute number of states and individuals |
+| 500'000 | _Once upon a time_, a very important man died, and the man went by the surname of his grandfather. In that case the man became the father of his grandfather, the son of his grandfather, and the brother of his mother. If the man's father could not" |
+| 1'000'000 | _Once upon a time_, we were all peasants, but we grew up and became teachers, lawyers, politicians, writers and scientists, we learned the arts, science, religion, history and even how to ride a horse.\nWe lived, we worked, we loved, |
 
 
 ### Instruction Finetuned Model
@@ -56,6 +56,9 @@ The loss convergence of the instruction finetuning is, unsurprisingly, much fast
 ![SFT Loss Curves](/report/images/sft-loss.png)
 
 #### Sample Outputs (Instruct)
+
+> [!NOTE]
+> This section is outdated and needs to be updated. The outputs below are from a previous run
 
 The example output belows show that the model is able to create proper responses and seems to understand what is expected from it... atleast sometimes :).
 
@@ -163,7 +166,7 @@ python src/fgpt/inference.py
 - ~Optimization: Switch to Muon Optimizer~
 - ~Muon Optimizer: Improve training speed~
 - ~Scaling: Train on >14B tokens (Chinchilla optimality)~
-- Add RoPE and SwiGLU to the base model
+- ~Implement modern stack: RoPE, SwiGLU and RMSNorm~
 - SFT: Better selection of SFT datasets and instruction finetuning. (ongoing)
 - Chat-based evaluation: add instruction data on multiple choice questions & check hellaswag after instruction finetuning.
 - Deployment: HF Spaces demo

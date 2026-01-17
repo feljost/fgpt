@@ -2,8 +2,9 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from rotary_embedding_torch import RotaryEmbedding
 
-B = 84  # batch size
+B = 40  # batch size
 T = 1024  # sequence length / time
 
 
@@ -39,6 +40,9 @@ class CausalSelfAttention(nn.Module):
         # Output projection
         self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
 
+        # rotary embedding object
+        self.rotary_emb = RotaryEmbedding(dim = self.head_dim)
+
     def forward(self, x):
         B, T, C = x.size()
 
@@ -56,6 +60,11 @@ class CausalSelfAttention(nn.Module):
         q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
         v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
 
+        # 3. Apply rotary embeddings to Q and K
+        # rotary_embedding_torch expects shape (B, n_head, T, head_dim)
+        q = self.rotary_emb.rotate_queries_or_keys(q)
+        k = self.rotary_emb.rotate_queries_or_keys(k)
+
         # PyTorch automatically selects the fastest kernel (FlashAttention V2, etc.)
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, is_causal=True)
 
@@ -68,32 +77,29 @@ class CausalSelfAttention(nn.Module):
 
 
 class MLP(nn.Module):
+    """SwiGLU MLP with fused gate and up projection."""
     def __init__(self, config):
         super().__init__()
-        # MLP consists of two linear layers with a GELU activation in between
-
-        self.c_fc = nn.Linear(
-            config.n_embd, 4 * config.n_embd
-        )  # "context to feed-forward"
-        # no need for approximate version as used by GPT-2 (it used to be slow, but now it's fast)
-        self.gelu = nn.GELU()
-        self.c_proj = nn.Linear(
-            4 * config.n_embd, config.n_embd
-        )  # "context projection"
+        hidden_dim = int(8 / 3 * config.n_embd)
+        hidden_dim = ((hidden_dim + 255) // 256) * 256
+        
+        # Fused gate and up projection
+        self.w13 = nn.Linear(config.n_embd, 2 * hidden_dim, bias=False)
+        self.w2 = nn.Linear(hidden_dim, config.n_embd, bias=False)
+        self.hidden_dim = hidden_dim
 
     def forward(self, x):
-        x = self.c_fc(x)
-        x = self.gelu(x)
-        x = self.c_proj(x)
-        return x
+        w13_out = self.w13(x)
+        w1_out, w3_out = w13_out.split(self.hidden_dim, dim=-1)
+        return self.w2(F.silu(w1_out) * w3_out)
 
 
 class Block(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.ln_1 = nn.LayerNorm(config.n_embd)
+        self.ln_1 = nn.RMSNorm(config.n_embd)
         self.attn = CausalSelfAttention(config)
-        self.ln_2 = nn.LayerNorm(config.n_embd)
+        self.ln_2 = nn.RMSNorm(config.n_embd)
         self.mlp = MLP(config)
 
     def forward(self, x):
@@ -113,12 +119,10 @@ class FGPT(nn.Module):
             dict(
                 # weight of token embeddings
                 wte=nn.Embedding(config.vocab_size, config.n_embd),
-                # weight of position embeddings
-                wpe=nn.Embedding(config.block_size, config.n_embd),
-                # actual blocks -> transformer layers (h = hidden)
+                # wpe not needed as we are using RoPE
                 h=nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
-                # final layer norm
-                ln_f=nn.LayerNorm(config.n_embd),
+                # final normalization
+                ln_f=nn.RMSNorm(config.n_embd),
             )
         )
         # actual head that will output logits for each token in the vocabulary
@@ -145,10 +149,12 @@ class FGPT(nn.Module):
             f"Cannot forward sequence of length {T} > block size {self.config.block_size}"
         )
 
-        pos = torch.arange(0, T, dtype=torch.long, device=idx.device)  # shape (T,)
-        pos_emb = self.transformer.wpe(pos)  # (T, n_emberd) position embeddings
-        tok_emb = self.transformer.wte(idx)  # (B, T, n_embd) token embeddings
-        x = tok_emb + pos_emb  # (B, T, n_embd) sum of token and position embeddings
+        # pos = torch.arange(0, T, dtype=torch.long, device=idx.device)  # shape (T,)
+        # pos_emb = self.transformer.wpe(pos)  # (T, n_emberd) position embeddings
+        # tok_emb = self.transformer.wte(idx)  # (B, T, n_embd) token embeddings
+        # x = tok_emb + pos_emb  # (B, T, n_embd) sum of token and position embeddings
+
+        x = self.transformer.wte(idx)  # (B, T, n_embd) token embeddings
 
         for block in self.transformer.h:
             x = block(x)
