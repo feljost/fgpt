@@ -21,9 +21,7 @@
 * **Instruction Tuning:** Fine-tuned on a composite dataset (Smoltalk + Raschka + Alpaca-Cleaned) to enable 1-turn conversational capabilities.
 * **Evals:** Base model evaluated on HellaSwag.
 
-## Training Dynamics & Infrastructure
-
-## Training Dynamics & Infrastructure
+### Training Dynamics & Infrastructure
 
 Training was conducted on a single NVIDIA GH200 GPU via Lambda Labs. Using this setup, I was able to use a large effective batch size of ~0.5M tokens (accumulated over 12 micro-steps) and sustain a training throughput of ~81,000 tokens/second.
 
