@@ -20,6 +20,19 @@
 * **Muon Optimizer:** Faster loss convergence due to the use of the Muon Optimizer (as used in [nano-gpt speedrun](...)).
 * **Instruction Tuning:** Fine-tuned on a composite dataset (Smoltalk + Raschka + Alpaca-Cleaned) to enable 1-turn conversational capabilities.
 * **Evals:** Base model evaluated on HellaSwag.
+
+## Training Dynamics & Infrastructure
+
+## Training Dynamics & Infrastructure
+
+Training was conducted on a single NVIDIA GH200 GPU via Lambda Labs. Using this setup, I was able to use a large effective batch size of ~0.5M tokens (accumulated over 12 micro-steps) and sustain a training throughput of ~81,000 tokens/second.
+
+* **Total Compute Time:** ~210 Hours (Wall clock)
+* **Total Tokens Seen:** ~45 Billion
+* **Cost Estimate:** ~$300
+
+The 210-hour runtime reflects the experimental nature of the project, including a necessary restart to break a loss plateau (visible in the loss curve) and a slow initial decline for the first 1/3 of the run. With more accurate hyperparameters, a reproduction run would likely require significantly fewer GPU hours.
+
 ## Results
 
 ### Base Model
@@ -28,13 +41,25 @@ For the base model I achieve ~2.58 cross entropy nats on the validation set, whi
 
 ![Base training overview](/report/images/base-train-overview.png)
 
-The initial run was run with about 22B tokens, however after around 20B I observed a loss plateau. The loss plateau was accompanied with strongly rising norms. To break through this plateau, the training continued with another 8B tokens, while learning rate was phased out to 0 (using cosine annealing schedule) and clipping the norms at 0.5 rather than 1.0. A correcting weight decay or even just a weight decaying schedule could improve this issue in future runs, as described by [Defazio 2025](https://arxiv.org/abs/2506.02285v2).
+The initial run was run with about 32B tokens, after which I observed loss plateau. The loss plateau was accompanied with strongly rising norms. To break through this plateau, the training continued with another 10B tokens, while learning rate was phased out to 0 (using cosine annealing schedule). To combat the rising Norms, the norm clipping was set to 0.5 already after 350k microsteps. A correcting weight decay or even just a weight decaying schedule could improve this issue in future runs, as described by [Defazio 2025](https://arxiv.org/abs/2506.02285v2).
 
-Every 25k micro-steps I evaluate the HellaSwag accuracy of the base model, which takes the logits of all responses (given the input) and picks the most likely response. The model scores ~49% which is significantly better than random guessing (=25%).
+#### Benchmarks
+
+FGPT outperforms the architectural baseline (GPT-2 Large) on HellaSwag zero-shot evaluation, demonstrating the efficacy of modern architectural components (SwiGLU, RoPE) and the Muon optimizer.
+
+| Model | Parameters | HellaSwag (0-shot) | Architecture |
+| :--- | :--- | :--- | :--- |
+| **FGPT (Ours)** | **600M** | **~49.0%** | **Llama-style (SwiGLU/RoPE)** |
+| GPT-2 Large | 774M | ~45.0%* | Standard GPT-2 |
+| GPT-2 XL | 1.5B | ~51.0% | Standard GPT-2 |
+
+*> Baseline sourced from [llama.cpp discussions](https://github.com/ggml-org/llama.cpp/discussions/2321)*
+
+The Hellaswag accuracy was evaluated every 25k micro-steps. The evaluation was simple: takethe logits of all responses (given the input) and picks the most likely response. The model scores ~49% which is significantly better than random guessing (=25%).
 
 ![HellaSwag Base Model](/report/images/hellaswag-base.png)
 
-#### Sample Outputs (Instruct)
+#### Sample Outputs (Base)
 
 The table below shows how the sample outputs evolved with the steps of training. You can see that the model learns rough grammar and does not mix up tokens that don't go together (for the most part). It also starts to stick to semantic topics better. The input text is "Once upon a time" after which the model generates the rest.
 
