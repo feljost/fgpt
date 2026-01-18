@@ -14,22 +14,21 @@
 
 ### Key Technical Implementations
 
-* **Architecture:** GPT-2 Large aspect ratio, (600M Params, 32 layers, 24 heads), but with modern touches such as SwiGLU, RoPE, and RMSNorm.  It uses Phi-3 Style prompt templates and GPT2 Tokenizer.
-* **Single GPU:** Trained on a single GPU to save money and make it reproducible for enthusiasts.
-* **Stochastic Sampling:** Random batch sampling during training (vs. sequential) to mitigate domain drift caused by long documents, resulting in a significantly lower validation loss.
-* **Muon Optimizer:** Fasters loss convergence to the use of Muon Optimizer (as used in [nano-gpt speedrun](https://x.com/kellerjordan0/status/1842300916864844014))
-* **Instruction Tuning:** Fine-tuned on a composite dataset (Raschka + Alpaca-Cleaned) to enable 1-turn conversational capabilities.
-* **Evals:** BaseModel evaluated on HellaSwag.
-
+* **Architecture:** Modern Decoder-only Transformer (Llama-style) using GPT-2 Large dimensions (600M Params, 32 layers, 24 heads). Features SwiGLU, RoPE, and RMSNorm. Uses Phi-3 style prompt templates and the GPT-2 Tokenizer.
+* **Single GPU:** Trained on a single GPU to ensure reproducibility for enthusiasts with limited compute.
+* **Stochastic Sampling:** Random batch sampling during training (vs. sequential) to mitigate domain drift caused by long documents.
+* **Muon Optimizer:** Faster loss convergence due to the use of the Muon Optimizer (as used in [nano-gpt speedrun](...)).
+* **Instruction Tuning:** Fine-tuned on a composite dataset (Smoltalk + Raschka + Alpaca-Cleaned) to enable 1-turn conversational capabilities.
+* **Evals:** Base model evaluated on HellaSwag.
 ## Results
 
 ### Base Model
 
-For the base model I achieve ~2.65 cross entropy nats on the validation set, which is a good result and about what we can expect without many advanced tweaks or a lot more compute time. As we are only training on english educational content, our dataset is fairly homogeneous compared to multilanguage datasets. If we were to train on something like FineWeb-Edu2 (the multilingual version) or OpenWebText, we would expect a higher loss.
+For the base model I achieve ~2.58 cross entropy nats on the validation set, which is a good result and about what we can expect without many more tweaks or a lot more compute time. As we are only training on English educational content, our dataset is fairly homogeneous compared to multilanguage datasets. If we were to train on something like FineWeb-Edu2 (the multilingual version) or OpenWebText, we would expect a higher loss.
 
 ![Base training overview](/report/images/base-train-overview.png)
 
-The initial run was run with about 22B tokens, however after around 20B I observed a loss plateau. The loss plateau was acommpanied with strongly rising norms. To break through this plateau, the training continued with another 8B tokens, while learning rate was phased out to 0 (using cosine annealing schedule) and clipping the norms at 0.5 rather than 1.0. A correcting weight decay or even just a weight decaying schedule could improve this issue in future runs, as described by [Defazio 2025](https://arxiv.org/abs/2506.02285v2).
+The initial run was run with about 22B tokens, however after around 20B I observed a loss plateau. The loss plateau was accompanied with strongly rising norms. To break through this plateau, the training continued with another 8B tokens, while learning rate was phased out to 0 (using cosine annealing schedule) and clipping the norms at 0.5 rather than 1.0. A correcting weight decay or even just a weight decaying schedule could improve this issue in future runs, as described by [Defazio 2025](https://arxiv.org/abs/2506.02285v2).
 
 Every 25k micro-steps I evaluate the HellaSwag accuracy of the base model, which takes the logits of all responses (given the input) and picks the most likely response. The model scores ~49% which is significantly better than random guessing (=25%).
 
@@ -50,7 +49,7 @@ The table below shows how the sample outputs evolved with the steps of training.
 
 ### Instruction Finetuned Model
 
-Pretraining on the around 200k prompt - response paired converged quickly. The training was only done on pairs where both prompt and response were shorter than 300 tokens max.
+Finetuning on the around 200k prompt - response paired converged quickly. The training was only done on pairs where both prompt and response were shorter than 300 tokens max.
 
 The loss convergence of the instruction finetuning is, unsurprisingly, much faster and the final loss much lower.
 
@@ -58,7 +57,7 @@ The loss convergence of the instruction finetuning is, unsurprisingly, much fast
 
 #### Sample Outputs (Instruct)
 
-The example output belows show that the model is able to create proper responses and seems to understand what is expected from it... atleast sometimes :).
+The example output below shows that the model is able to create proper responses and seems to understand what is expected from it... atleast sometimes :).
 
 | Prompt | Output |
 |--------|--------|
@@ -68,11 +67,11 @@ The example output belows show that the model is able to create proper responses
 | Where is the White House located? | The White House is located in Washington, DC, America. |
 | What is the boiling point of water? | The boiling point of water is about 100 degrees C (212 f). |
 | Summarize the plot of '1984' by George Orwell. | '1984' is a fictional account of a dystopian novel where a new society arises in the United States. The plot centers around a dystopian nation whose citizens have been indoctrinated into obedience through the use of propaganda and surveillance. ...
-| What is 2 + 2? | The answer is 2. |
+| What is 2 + 2? | The answer is 4. |
 | Tell me a fun fact about Italy | Italy is known for its rich history and heritage. Its culture is renowned for its ancient city-states, the Renaissance, and its unique gastronomy. The country is also known for its wine, olive oil, and other agricultural products. |
 | What color is the sky? | The sky is blue.\nI don't think the sky is blue, I feel like the sky should be blue |
 
-As (for now) the instruction finetuning data is 1-turn only, the model will generally only be able to awnser one question at a time (somewhat) reliably.
+As (for now) the instruction finetuning data is 1-turn only, the model will generally only be able to answer one question at a time (somewhat) reliably.
 
 # Implementation Details
 
@@ -80,7 +79,7 @@ FGPT follows the standard GPT-2 Large architecture (decoder-only transformer). I
 
 ## Pretraining
 
-The first step is training the model on a general text corpus of clean data. Just like Karpathy, I use Huggingface's [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) ataset which is an english-only high-quality text dataset. The dataset is fairly homogeneous, which makes it easier to train on than other commonly used datasets like OpenWebText.
+The first step is training the model on a general text corpus of clean data. Just like Karpathy, I use Huggingface's [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) dataset which is an English-only high-quality text dataset. The dataset is fairly homogeneous, which makes it easier to train on than other commonly used datasets like OpenWebText.
 
 I make some changes to the dataloader functions in comparison to Karpathy's implementation. First, I split the FineWeb-Edu dataset at the document level, ensuring no document appears in both training and validation sets. This prevents data leakage and ensures a clean evaluation. Secondly, I also provide random batches of training data during training, and use a fixed validation batch throughout the training. The randomness of training data helps to avoid domain drift, as the documents of FineWeb-Edu can be very long and therefore the model just starts to memorize certain domains. This random approach was a game changer when trying to get the validation loss under 3.8 nats.
 
