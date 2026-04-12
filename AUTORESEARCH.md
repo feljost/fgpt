@@ -103,7 +103,7 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 | 2 | `exp-002-lr-adamw-3e4` | AdamW LR 3e-4 | `adamw_lr=3e-4` | ✅ done |
 | 3 | `exp-003-muon-lr-025` | Muon LR higher (0.025) | `muon_lr=0.025` | ✅ done |
 | 4 | `exp-004-muon-lr-015` | Muon LR lower (0.015) | `muon_lr=0.015` | ✅ done |
-| 5 | `exp-005-rope-base-100k` | RoPE base freq 100k (LLaMA-3 style) | `RotaryEmbedding(base=100000)` | ⏳ todo |
+| 5 | `exp-005-rope-base-100k` | RoPE base freq 100k (LLaMA-3 style) | `RotaryEmbedding(base=100000)` | ✅ done |
 | 6 | `exp-006-qk-norm` | QK normalization | Add `RMSNorm` on Q and K before attention | ⏳ todo |
 | 7 | `exp-007-parallel-attn-mlp` | Parallel attention + MLP (PaLM style) | Compute attn and MLP in parallel, sum residuals | ⏳ todo |
 | 8 | `exp-008-geglu` | GeGLU instead of SwiGLU | Replace `F.silu` gate with `F.gelu` in MLP | ⏳ todo |
@@ -137,10 +137,11 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 | Rank | Tag | Val Loss | Description |
 |------|-----|----------|-------------|
 | 1 | `exp-003-muon-lr-025` | 5.3898 | Muon LR 0.025 (higher) |
-| 2 | `exp-002-lr-adamw-3e4` | 5.4101 | AdamW LR 3e-4 vs 2e-4 |
-| 3 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
-| 4 | `exp-000-baseline` | 5.5235 | current config unchanged |
-| 5 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
+| 2 | `exp-005-rope-base-100k` | 5.4097 | RoPE base 100k (LLaMA-3 style) |
+| 3 | `exp-002-lr-adamw-3e4` | 5.4101 | AdamW LR 3e-4 vs 2e-4 |
+| 4 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
+| 5 | `exp-000-baseline` | 5.5235 | current config unchanged |
+| 6 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
 
 *Auto-updated by `run_experiment.py` after each run — see `experiments/results.jsonl` for full data.*
 
