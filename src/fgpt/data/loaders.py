@@ -1,5 +1,6 @@
 import os
 import random
+from pathlib import Path
 import numpy as np
 import torch
 from fgpt.tokenizer import special_tokens
@@ -28,7 +29,8 @@ class BaseDataLoader:
         self.T = T
         # Use a private RNG instance so we don't touch global random state
         self._rng = random.Random(seed)
-        data_root = "edu_fineweb100B"
+        # Absolute path so this works regardless of CWD
+        data_root = str(Path(__file__).resolve().parents[3] / "edu_fineweb100B")
 
         all_files = sorted(os.listdir(data_root))
         self.shards = [
