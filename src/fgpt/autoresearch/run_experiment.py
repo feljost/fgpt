@@ -141,7 +141,6 @@ def run_experiment(
     n_head: int = 24,
     batch_size: int = 64,
     weight_decay: float = 0.1,
-    untie_lm_head: bool = False,
     # Per-experiment reasoning (written into the notes file)
     reasoning: str = "",
 ):
@@ -163,7 +162,7 @@ def run_experiment(
     # ── Model ────────────────────────────────────────────────────
     # Enable gradient checkpointing to fit in 80 GB (production ran on 96 GB GH200).
     # Recomputes each block during backward instead of storing all 32 layers.
-    cfg = FGPTConfig(gradient_checkpointing=True, rope_base=rope_base, n_head=n_head, untie_lm_head=untie_lm_head)
+    cfg = FGPTConfig(gradient_checkpointing=True, rope_base=rope_base, n_head=n_head)
     model = FGPT(cfg)
     model.to("cuda")
     torch.set_float32_matmul_precision("medium")
@@ -347,7 +346,6 @@ def main():
     parser.add_argument("--n-head", type=int, default=24)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--weight-decay", type=float, default=0.1)
-    parser.add_argument("--untie-lm-head", action="store_true", default=False)
     parser.add_argument("--reasoning", type=str, default="")
     args = parser.parse_args()
 
@@ -364,7 +362,6 @@ def main():
         n_head=args.n_head,
         batch_size=args.batch_size,
         weight_decay=args.weight_decay,
-        untie_lm_head=args.untie_lm_head,
         reasoning=args.reasoning,
     )
 

@@ -27,8 +27,6 @@ class FGPTConfig:
     # RoPE base frequency. Default 10000 matches GPT-NeoX / original RoPE paper.
     # LLaMA-3 uses 500000; common alternatives are 20000, 100000.
     rope_base: int = 10000
-    # Untie lm_head weights from wte. Default False = tied (saves ~63M params).
-    untie_lm_head: bool = False
 
 
 class CausalSelfAttention(nn.Module):
@@ -105,16 +103,18 @@ class MLP(nn.Module):
 
 
 class Block(nn.Module):
+    """PaLM-style parallel block: attn and MLP share one pre-norm, residuals summed together.
+    Merged as permanent baseline after exp-007 (val_loss 5.1336, -0.39 vs sequential baseline).
+    """
     def __init__(self, config):
         super().__init__()
         self.ln_1 = nn.RMSNorm(config.n_embd)
         self.attn = CausalSelfAttention(config)
-        self.ln_2 = nn.RMSNorm(config.n_embd)
         self.mlp = MLP(config)
 
     def forward(self, x):
-        x = x + self.attn(self.ln_1(x))
-        x = x + self.mlp(self.ln_2(x))
+        normed = self.ln_1(x)
+        x = x + self.attn(normed) + self.mlp(normed)
         return x
 
 
@@ -136,9 +136,8 @@ class FGPT(nn.Module):
         # actual head that will output logits for each token in the vocabulary
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
-        # weight sharing scheme (tied by default; untie_lm_head adds ~63M params)
-        if not config.untie_lm_head:
-            self.transformer.wte.weight = self.lm_head.weight
+        # weight sharing scheme
+        self.transformer.wte.weight = self.lm_head.weight
 
         # initialize weights
         self.apply(self._init_weights)
