@@ -60,6 +60,16 @@ def _git(args, check=True):
     return result.stdout.strip()
 
 
+# Observed throughput on GH200 (tokens/sec). Used only to estimate schedule length.
+_TOKENS_PER_SEC = 81_000
+
+
+def _estimate_microsteps(duration_minutes: float, B: int, T: int) -> int:
+    """Estimate how many microsteps fit in duration_minutes at observed throughput."""
+    tokens_per_microstep = B * T
+    return int(duration_minutes * 60 * _TOKENS_PER_SEC / tokens_per_microstep)
+
+
 def run_experiment(
     tag: str,
     description: str,
@@ -70,16 +80,20 @@ def run_experiment(
     start_lr_adamw: float = 2e-4,
     start_lr_muon: float = 0.02,
     min_lr_ratio: float = 0.05,
-    total_schedule_steps: int = 1_000_001,
-    warmup_frac: float = 0.01,
+    warmup_frac: float = 0.05,
     plateau_frac: float = 0.0,
     # Per-experiment reasoning (written into the notes file)
     reasoning: str = "",
 ):
+    # Scale the LR schedule to the actual run length so warmup/decay are meaningful.
+    # With 1M-step defaults, every 30-min run sits entirely inside warmup.
+    total_schedule_steps = _estimate_microsteps(duration_minutes, B, T)
+
     print(f"\n{'='*60}")
     print(f"EXPERIMENT: {tag}")
     print(f"Description: {description}")
-    print(f"Duration: {duration_minutes} minutes | Seed: {seed}")
+    print(f"Duration: {duration_minutes} min | Seed: {seed} | "
+          f"~{total_schedule_steps} microsteps | warmup {warmup_frac*100:.0f}%")
     print(f"{'='*60}\n")
 
     # ── Seeding ──────────────────────────────────────────────────
@@ -206,7 +220,7 @@ def main():
     parser.add_argument("--accumulation-steps", type=int, default=12)
     parser.add_argument("--adamw-lr", type=float, default=2e-4)
     parser.add_argument("--muon-lr", type=float, default=0.02)
-    parser.add_argument("--warmup-frac", type=float, default=0.01)
+    parser.add_argument("--warmup-frac", type=float, default=0.05)
     parser.add_argument("--reasoning", type=str, default="")
     args = parser.parse_args()
 
