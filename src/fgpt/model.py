@@ -27,8 +27,6 @@ class FGPTConfig:
     # RoPE base frequency. Default 10000 matches GPT-NeoX / original RoPE paper.
     # LLaMA-3 uses 500000; common alternatives are 20000, 100000.
     rope_base: int = 10000
-    # Use GeGLU (GELU gate) instead of SwiGLU (SiLU gate) in the MLP.
-    geglu: bool = False
 
 
 class CausalSelfAttention(nn.Module):
@@ -87,7 +85,7 @@ class CausalSelfAttention(nn.Module):
 
 
 class MLP(nn.Module):
-    """SwiGLU (default) or GeGLU MLP with fused gate and up projection."""
+    """SwiGLU MLP with fused gate and up projection."""
     def __init__(self, config):
         super().__init__()
         hidden_dim = int(8 / 3 * config.n_embd)
@@ -97,13 +95,11 @@ class MLP(nn.Module):
         self.w13 = nn.Linear(config.n_embd, 2 * hidden_dim, bias=False)
         self.w2 = nn.Linear(hidden_dim, config.n_embd, bias=False)
         self.hidden_dim = hidden_dim
-        self.geglu = config.geglu
 
     def forward(self, x):
         w13_out = self.w13(x)
         w1_out, w3_out = w13_out.split(self.hidden_dim, dim=-1)
-        gate = F.gelu(w1_out) if self.geglu else F.silu(w1_out)
-        return self.w2(gate * w3_out)
+        return self.w2(F.silu(w1_out) * w3_out)
 
 
 class Block(nn.Module):
