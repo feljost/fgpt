@@ -65,6 +65,27 @@ def plot(results, out_path=None):
 
     fig, ax = plt.subplots(figsize=(max(10, len(results) * 1.4), 6))
 
+    # Phase background shading
+    phase_boundary = 7.5  # hours
+    x_min = min(xs) - 0.5
+    x_max = max(xs) + 1.5
+    ax.axvspan(x_min, phase_boundary, alpha=0.06, color="#4575b4", zorder=0)
+    ax.axvspan(phase_boundary, x_max, alpha=0.06, color="#d73027", zorder=0)
+    ax.axvline(phase_boundary, color="#888888", linewidth=1.2, linestyle="--", zorder=2)
+    # Phase labels use blended transform: x in data coords, y in axes fraction
+    from matplotlib.transforms import blended_transform_factory
+    trans = blended_transform_factory(ax.transData, ax.transAxes)
+    ax.text(
+        phase_boundary - 0.1, 0.02, "Phase 1",
+        ha="right", va="bottom", fontsize=9, color="#4575b4", fontstyle="italic",
+        transform=trans,
+    )
+    ax.text(
+        phase_boundary + 0.1, 0.02, "Phase 2",
+        ha="left", va="bottom", fontsize=9, color="#d73027", fontstyle="italic",
+        transform=trans,
+    )
+
     ax.plot(xs, ys, marker="o", linewidth=2, markersize=8, color="#2c7bb6", zorder=3)
 
     # Annotate each point with tag + short description

@@ -27,6 +27,8 @@ class FGPTConfig:
     # RoPE base frequency. Default 10000 matches GPT-NeoX / original RoPE paper.
     # LLaMA-3 uses 500000; common alternatives are 20000, 100000.
     rope_base: int = 10000
+    # Untie lm_head weights from wte. Default False = tied (saves ~63M params).
+    untie_lm_head: bool = False
 
 
 class CausalSelfAttention(nn.Module):
@@ -134,8 +136,9 @@ class FGPT(nn.Module):
         # actual head that will output logits for each token in the vocabulary
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
-        # weight sharing scheme
-        self.transformer.wte.weight = self.lm_head.weight
+        # weight sharing scheme (tied by default; untie_lm_head adds ~63M params)
+        if not config.untie_lm_head:
+            self.transformer.wte.weight = self.lm_head.weight
 
         # initialize weights
         self.apply(self._init_weights)
