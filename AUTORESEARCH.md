@@ -10,6 +10,25 @@ Improve the base model's validation loss (currently ~2.58 after 45B tokens of fu
 
 ---
 
+## Research Phases
+
+### Phase 1 — Isolated single-variable tests (exp-000 to exp-016)
+Test one change at a time against the same original baseline. Every experiment starts from a fresh model with identical seeds and data. Code changes are always reverted after recording the result — no changes accumulate. The goal is to identify which individual changes are beneficial *at all*, and to build a ranked list of ideas.
+
+**Key findings from Phase 1:**
+- **Parallel attn+MLP** (PaLM style): -0.39 val loss vs baseline — dominant win by a large margin
+- **n_head=16** (larger heads): -0.17 — strong architectural win
+- **GeGLU** (GELU gate in MLP): -0.14 — modest win
+- **muon_lr=0.025, adamw_lr=3e-4**: both improved early learning speed
+- **qk_norm, logit_softcap, z_loss**: all hurt or were neutral — constraining attention/logit growth is bad at this scale
+
+### Phase 2 — Compounding hill-climbing (exp-017+)
+Starting baseline: **parallel attn+MLP + adamw_lr=3e-4 + muon_lr=0.025** (val loss ~5.1336).
+
+Each experiment runs on top of the current best compound config. If it wins, the change is permanently merged and becomes the new baseline for all subsequent experiments. If it loses, it is reverted. This greedy hill-climbing approach finds synergistic combinations that isolated tests miss.
+
+---
+
 ## How It Works
 
 Every experiment:
@@ -94,7 +113,9 @@ Output: `experiments/plots/progress.png` — val loss annotated with tag and des
 
 ## Ideas Queue
 
-Experiments are ordered by expected impact and ease. After each run, update the status column.
+### Phase 1 — Isolated experiments (exp-000 to exp-016)
+
+Each experiment tested one variable against the original baseline in isolation. No compounding. Results established which changes are independently beneficial.
 
 | # | Tag | Description | Change | Status |
 |---|-----|-------------|--------|--------|
@@ -111,21 +132,43 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 | 10 | `exp-010-logit-softcap` | Soft-cap logits (Gemma 2 style) | `logits = tanh(logits/30)*30` before CE loss | ✅ done |
 | 11 | `exp-011-z-loss` | auxiliary logit z-loss | Add `z_loss = 1e-4 * logits.logsumexp(-1).pow(2).mean()` | ✅ done |
 | 15 | `exp-015-weight-decay-005` | lower weight decay (0.05) | `weight_decay=0.05` in AdamW | ✅ done |
-| 16 | `exp-016-no-weight-tying` | untie lm_head from wte | Separate `lm_head` and `wte` weights | ⏳ todo |
-| 17 | `exp-017-deeper-narrower` | 40 layers, n_embd=1120 | `n_layer=40, n_embd=1120` (~same params) | ⏳ todo |
-| 18 | `exp-018-batch-larger` | effective batch 1M tokens | `accumulation_steps=16` (~1M tokens/update) | ⏳ todo |
-| 19 | `exp-019-adamw-beta2-099` | slower grad² EMA in AdamW | `betas=(0.9, 0.99)` instead of `(0.9, 0.95)` | ⏳ todo |
-| 20 | `exp-020-rope-base-20k` | RoPE base freq 20k | `RotaryEmbedding(base=20000)` | ⏳ todo |
-| 21 | `exp-021-muon-lr-030` | Muon LR 0.030 (push higher) | `muon_lr=0.030` — extend sweep past 0.025 | ⏳ todo |
-| 22 | `exp-022-adamw-lr-5e4` | AdamW LR 5e-4 (push higher) | `adamw_lr=5e-4` — extend sweep past 3e-4 | ⏳ todo |
-| 23 | `exp-023-sandwich-norm` | Output norm after each sublayer | Add `RMSNorm` after attn/MLP output before residual add (Peri-LN / OLMo 2 style) | ⏳ todo |
-| 24 | `exp-024-diff-attn` | Differential attention (ICLR 2025) | Split heads: `attn = softmax(Q·K1ᵀ)V1 - λ·softmax(Q·K2ᵀ)V2`, cancels attention noise | ⏳ todo |
-| 25 | `exp-025-sliding-window-alt` | Sliding window on even layers (Gemma 2) | Even-indexed blocks use local attention (window=512), odd use full | ⏳ todo |
-| 26 | `exp-026-attn-entropy-loss` | Attention entropy aux loss | Add `0.01 * max(0, threshold - attn_entropy)` to prevent head collapse (Apple ML) | ⏳ todo |
-| 27 | `exp-027-rope-base-5k` | RoPE base freq 5k (lower) | `RotaryEmbedding(base=5000)` — bracket lower end | ⏳ todo |
-| 28 | `exp-028-gqa-8kv` | Grouped Query Attention (8 KV heads) | `n_kv_heads=8`, 24 query heads — reduce KV size, same Q params | ⏳ todo |
-| 29 | `exp-029-muon-nesterov` | Muon with Nesterov momentum | Enable Nesterov in Muon optimizer (`nesterov=True`) | ⏳ todo |
-| 30 | `exp-030-pre-post-norm` | Pre+Post norm (DeepNorm style) | Scale residual by `α` before add; helps very deep networks (Microsoft 2022) | ⏳ todo |
+| 16 | `exp-016-no-weight-tying` | untie lm_head from wte | Separate `lm_head` and `wte` weights | ⏳ running |
+
+---
+
+### Phase 2 — Compounding experiments (exp-017+)
+
+**Starting baseline for phase 2:**
+- Architecture: **parallel attn+MLP** (exp-007, biggest phase 1 win at 5.1336)
+- Optimizers: **adamw_lr=3e-4**, **muon_lr=0.025** (exp-002, exp-003)
+- Plus **exp-016 result** if it beats phase 2 baseline
+
+**Rules:** Each experiment runs on top of the current best compound config. If it wins, the change is permanently merged into the baseline for all subsequent experiments. If it loses, it is reverted. The compound baseline val loss is updated after each winning run.
+
+The first two experiments (017, 018) re-validate the other phase 1 architectural winners on the new parallel baseline — their isolated wins may not hold now that the residual structure has changed.
+
+| # | Tag | Description | Change | Rationale |
+|---|-----|-------------|--------|-----------|
+| 17 | `exp-017-compound-n-head-16` | n_head=16 on parallel baseline | `n_head=16` | Phase 1 rank-2 win (5.3510) — must re-validate; parallel arch changes residual structure |
+| 18 | `exp-018-compound-geglu` | GeGLU on parallel baseline | `geglu=True` | Phase 1 rank-3 win (5.3875) — test if it compounds with parallel |
+| 19 | `exp-019-muon-lr-030` | Muon LR 0.030 | `muon_lr=0.030` | 0.025 won over 0.020 and 0.015; more expressive arch may need higher LR |
+| 20 | `exp-020-adamw-lr-5e4` | AdamW LR 5e-4 | `adamw_lr=5e-4` | 3e-4 won over 2e-4; continue sweep upward on compound baseline |
+| 21 | `exp-021-sandwich-norm` | Post-norm after sublayer output (OLMo 2) | `RMSNorm` after parallel output before residual add | OLMo 2 found this very effective; with parallel arch there's only one pre-norm, post-norm may stabilize |
+| 22 | `exp-022-diff-attn` | Differential attention (ICLR 2025) | `attn = softmax(Q·K1ᵀ)V1 − λ·softmax(Q·K2ᵀ)V2` | Cancels attention noise by subtracting a second attention head; no constraint on logit scale (unlike qk-norm) |
+| 23 | `exp-023-gqa-8kv` | GQA: 8 KV heads | `n_kv_heads=8` (assuming n_head=16 in baseline) | Halve KV heads; reduces memory and adds parameter budget elsewhere; natural complement to n_head=16 |
+| 24 | `exp-024-n-head-8` | 8 attention heads (head_dim 156) | `n_head=8` | n_head went 24→16 and improved; test if going further to 8 (head_dim=156) helps |
+| 25 | `exp-025-sliding-window` | Alternating local/global attention | Even layers: window=512; odd: full attention | Reduce compute on half the layers; local patterns handled cheaply, global context preserved |
+| 26 | `exp-026-deeper-narrower` | 40 layers, n_embd=1120 | `n_layer=40, n_embd=1120` (~same params) | Test depth vs width tradeoff on compound baseline; parallel arch may favour depth more |
+| 27 | `exp-027-muon-nesterov` | Muon with Nesterov momentum | `nesterov=True` in Muon | Nesterov look-ahead often improves convergence; zero-overhead optimizer change |
+| 28 | `exp-028-adamw-beta2-099` | Slower grad² EMA in AdamW | `betas=(0.9, 0.99)` instead of `(0.9, 0.95)` | More stable second moment; useful when LR is pushed higher (as in compound baseline) |
+| 29 | `exp-029-warmup-2pct` | 2.5% warmup (shorter than baseline) | `warmup_frac=0.025` | 10% warmup hurt (exp-001); 5% is baseline; 2.5% may be better for fast-learning parallel arch |
+| 30 | `exp-030-batch-larger` | Effective batch 1M tokens | `accumulation_steps=16` | More stable gradient estimates per update; parallel arch has higher per-step throughput |
+| 31 | `exp-031-rope-base-20k` | RoPE base freq 20k | `theta=20000` | 100k was marginal; 20k not yet tested; lower than 10k may hurt, worth bracketing |
+| 32 | `exp-032-head-dim-64` | head_dim=64 (n_embd=1152, n_head=18) | `n_embd=1152, n_head=18` | Power-of-2 head dim for hardware alignment; slight param increase (~same order) |
+| 33 | `exp-033-muon-lr-035` | Muon LR 0.035 | `muon_lr=0.035` | Only run if exp-019 (0.030) wins — continue sweep |
+| 34 | `exp-034-adamw-lr-4e4` | AdamW LR 4e-4 | `adamw_lr=4e-4` | Only run if exp-020 (5e-4) loses — fine-tune between 3e-4 and 5e-4 |
+| 35 | `exp-035-weight-decay-02` | Higher weight decay (0.2) | `weight_decay=0.2` | Parallel arch is more expressive; stronger regularisation may help generalisation |
+| 36 | `exp-036-min-lr-zero` | Fully decay LR to 0 | `min_lr_ratio=0.0` | Baseline keeps 5% floor; aggressive full decay may squeeze out a few more steps of learning |
 
 ---
 
@@ -154,10 +197,11 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 ## Methodology Notes
 
 - **30 minutes from scratch** gives ~300 optimizer steps for the 600M model. Loss at this point is in the 5–7 range (still early). Comparisons are valid as long as they use identical seeds and data — we're measuring *relative improvement*, not absolute final loss.
-- **Small changes only.** One variable at a time. If a run beats baseline, merge it into the baseline config for the next experiment.
+- **Phase 1 (exp-000–016): isolated tests.** One variable at a time against the original baseline. Changes are always reverted after recording the result — no compounding.
+- **Phase 2 (exp-017+): compounding hill-climbing.** Each experiment runs on top of the current best compound config. If it wins, the change is permanently merged into the baseline. If it loses, it is reverted. The compound baseline val loss should be tracked manually after each winning merge.
 - **If signal is too noisy**, consider switching to an 85M model config for quick iteration (add it as `FGPTConfigSmall`), then validate winners on the full 600M model.
 - **Git tags** mark each experiment's code state. Use `git show <tag>` to see exactly what changed.
-- **Revert code changes after each run.** If an experiment requires modifying source files (e.g. model architecture, attention, MLP), those changes **must be reverted** before launching the next experiment. Only hyperparameter flags passed via CLI are automatically scoped to a single run. Structural code edits are not — failing to revert them would corrupt subsequent baselines.
+- **Revert code changes after each run.** If an experiment requires modifying source files (e.g. model architecture, attention, MLP), those changes **must be reverted** before launching the next experiment if the experiment lost. If the experiment won, the change is kept and becomes part of the permanent baseline.
 
 ---
 
