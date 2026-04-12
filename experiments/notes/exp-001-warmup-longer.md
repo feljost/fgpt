@@ -20,6 +20,6 @@
 
 With only ~278 optimizer updates in 30 minutes, the baseline 5% warmup gives ~14 steps of warmup. Doubling to 10% gives ~28 warmup steps, which should produce a smoother early loss curve and potentially reduce the high initial gradient norms (norm ~2.5-2.8 seen in baseline). The hypothesis is that a gentler LR ramp helps the optimizer find a better trajectory before the cosine decay kicks in.
 
-## Changes from Baseline
+## Outcome
 
-_Fill in: what was changed vs exp-000-baseline_
+**Worse than baseline** (5.5596 vs 5.5235, +0.036). With only ~278 optimizer steps total, spending a larger fraction on warmup means less time at peak LR. The baseline 5% warmup is better for short 30-min windows. Hypothesis rejected — do not increase warmup fraction further.

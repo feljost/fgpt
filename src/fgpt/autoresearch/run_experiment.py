@@ -246,6 +246,29 @@ def run_experiment(
     print(f"Result appended to {RESULTS_FILE}")
 
     # ── Notes file ────────────────────────────────────────────────
+    # Compute delta vs baseline for the Outcome section
+    baseline_loss = None
+    delta_str = ""
+    try:
+        with open(RESULTS_FILE) as f:
+            for line in f:
+                entry = json.loads(line.strip())
+                if entry["tag"] == "exp-000-baseline":
+                    baseline_loss = entry["val_loss"]
+                    break
+        if baseline_loss is not None and tag != "exp-000-baseline":
+            delta = final_val_loss - baseline_loss
+            sign = "+" if delta > 0 else ""
+            verdict = "worse than" if delta > 0 else "better than"
+            delta_str = (
+                f"**{'Worse' if delta > 0 else 'Better'} than baseline** "
+                f"({final_val_loss:.4f} vs {baseline_loss:.4f}, {sign}{delta:.4f} {verdict} baseline)."
+            )
+        elif tag == "exp-000-baseline":
+            delta_str = f"Baseline established. Val loss **{final_val_loss:.4f}** is the reference for all future experiments."
+    except Exception:
+        delta_str = "_Could not compute delta vs baseline._"
+
     notes_path = NOTES_DIR / f"{tag}.md"
     notes_path.write_text(
         f"# {tag}\n\n"
@@ -263,7 +286,9 @@ def run_experiment(
         f"| Accum steps | {accumulation_steps} |\n"
         f"| Min LR ratio | {min_lr_ratio} |\n\n"
         f"## Reasoning\n\n"
-        f"{reasoning if reasoning else '_No reasoning provided._'}\n"
+        f"{reasoning if reasoning else '_No reasoning provided._'}\n\n"
+        f"## Outcome\n\n"
+        f"{delta_str}\n"
     )
     print(f"Notes written to {notes_path}")
 

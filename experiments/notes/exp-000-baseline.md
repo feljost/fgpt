@@ -20,6 +20,6 @@
 
 Establishes the baseline val loss for all future comparisons. No changes from the working autoresearch setup: B=64, acc=8, gradient_checkpointing=True, cosine LR schedule scaled to 30-min run.
 
-## Changes from Baseline
+## Outcome
 
-_Fill in: what was changed vs exp-000-baseline_
+Baseline established. Val loss **5.5235** is the reference for all future experiments.
