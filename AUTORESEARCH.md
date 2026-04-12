@@ -98,9 +98,9 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 
 | # | Tag | Description | Change | Status |
 |---|-----|-------------|--------|--------|
-| 0 | `exp-000-baseline` | current config unchanged | None — establishes baseline | ⏳ todo |
-| 1 | `exp-001-warmup-longer` | 2% warmup instead 1% | `warmup_frac=0.02` | ⏳ todo |
-| 2 | `exp-002-lr-adamw-3e4` | AdamW LR slightly higher | `adamw_lr=3e-4` | ⏳ todo |
+| 0 | `exp-000-baseline` | current config unchanged | None — establishes baseline | ✅ done |
+| 1 | `exp-001-warmup-longer` | 10% warmup instead of 5% | `warmup_frac=0.10` | ✅ done |
+| 2 | `exp-002-lr-adamw-3e4` | AdamW LR slightly higher | `adamw_lr=3e-4` | 🔄 running |
 | 3 | `exp-003-muon-lr-015` | Muon LR slightly lower | `muon_lr=0.015` | ⏳ todo |
 | 4 | `exp-004-rope-base-20k` | higher RoPE base freq | `RotaryEmbedding(base=20000)` | ⏳ todo |
 | 5 | `exp-005-qk-norm` | QK normalization | Add RMSNorm on Q and K | ⏳ todo |
@@ -115,9 +115,10 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 
 | Rank | Tag | Val Loss | Description |
 |------|-----|----------|-------------|
-| — | *(run exp-000-baseline first)* | — | — |
+| 1 | `exp-000-baseline` | 5.5235 | current config unchanged |
+| 2 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
 
-*Auto-updated by `visualize.py` — see `experiments/results.jsonl` for full data.*
+*Auto-updated by `run_experiment.py` after each run — see `experiments/results.jsonl` for full data.*
 
 ---
 

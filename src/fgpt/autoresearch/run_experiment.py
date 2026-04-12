@@ -52,6 +52,55 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 EXPERIMENTS_DIR = REPO_ROOT / "experiments"
 RESULTS_FILE = EXPERIMENTS_DIR / "results.jsonl"
 NOTES_DIR = EXPERIMENTS_DIR / "notes"
+AUTORESEARCH_MD = REPO_ROOT / "AUTORESEARCH.md"
+
+
+def _update_autoresearch_md(new_result: dict):
+    """Update Results Summary and Ideas Queue status in AUTORESEARCH.md."""
+    text = AUTORESEARCH_MD.read_text()
+
+    # ── Results Summary table ─────────────────────────────────────
+    # Rebuild from all results in results.jsonl, sorted by val_loss
+    results = []
+    with open(RESULTS_FILE) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                results.append(json.loads(line))
+
+    results_sorted = sorted(results, key=lambda r: r["val_loss"])
+    rows = []
+    for rank, r in enumerate(results_sorted, 1):
+        rows.append(
+            f"| {rank} | `{r['tag']}` | {r['val_loss']:.4f} | {r['description']} |"
+        )
+    table_body = "\n".join(rows)
+
+    new_table = (
+        "| Rank | Tag | Val Loss | Description |\n"
+        "|------|-----|----------|-------------|\n"
+        + table_body
+    )
+
+    # Replace everything between the header row and the italics note
+    import re
+    text = re.sub(
+        r"\| Rank \| Tag \| Val Loss \| Description \|.*?\n\*Auto-updated",
+        new_table + "\n\n*Auto-updated",
+        text,
+        flags=re.DOTALL,
+    )
+
+    # ── Ideas Queue: mark tag as done ────────────────────────────
+    tag = new_result["tag"]
+    text = re.sub(
+        rf"(\| \d+ \| `{re.escape(tag)}`[^\n]+)\| [⏳✅❌][^\n]*\|",
+        r"\1| ✅ done |",
+        text,
+    )
+
+    AUTORESEARCH_MD.write_text(text)
+    print(f"AUTORESEARCH.md updated.")
 
 
 def _git(args, check=True):
@@ -220,6 +269,12 @@ def run_experiment(
     )
     print(f"Notes written to {notes_path}")
 
+    # ── Update AUTORESEARCH.md ────────────────────────────────────
+    try:
+        _update_autoresearch_md(result)
+    except Exception as e:
+        print(f"Warning: could not update AUTORESEARCH.md: {e}")
+
     # ── Git tag + push ────────────────────────────────────────────
     try:
         _git(["tag", tag, "-m", f"{description} | val_loss={final_val_loss:.4f}"])
@@ -229,11 +284,14 @@ def run_experiment(
 
     try:
         branch = _git(["rev-parse", "--abbrev-ref", "HEAD"])
+        # Commit updated AUTORESEARCH.md (notes file already written above)
+        _git(["add", str(AUTORESEARCH_MD), str(NOTES_DIR / f"{tag}.md")])
+        _git(["commit", "-m", f"results: {tag} | val_loss={final_val_loss:.4f}"])
         _git(["push", "origin", branch])
         _git(["push", "origin", tag])
-        print(f"Pushed branch '{branch}' and tag '{tag}' to origin.")
+        print(f"Committed AUTORESEARCH.md, pushed branch '{branch}' and tag '{tag}' to origin.")
     except subprocess.CalledProcessError as e:
-        print(f"Warning: could not push to origin: {e.stderr.strip()}")
+        print(f"Warning: could not commit/push to origin: {e.stderr.strip()}")
 
     return final_val_loss
 
