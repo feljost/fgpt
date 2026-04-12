@@ -220,12 +220,20 @@ def run_experiment(
     )
     print(f"Notes written to {notes_path}")
 
-    # ── Git tag ───────────────────────────────────────────────────
+    # ── Git tag + push ────────────────────────────────────────────
     try:
         _git(["tag", tag, "-m", f"{description} | val_loss={final_val_loss:.4f}"])
         print(f"Git tag created: {tag}")
     except subprocess.CalledProcessError as e:
         print(f"Warning: could not create git tag '{tag}': {e.stderr.strip()}")
+
+    try:
+        branch = _git(["rev-parse", "--abbrev-ref", "HEAD"])
+        _git(["push", "origin", branch])
+        _git(["push", "origin", tag])
+        print(f"Pushed branch '{branch}' and tag '{tag}' to origin.")
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: could not push to origin: {e.stderr.strip()}")
 
     return final_val_loss
 
