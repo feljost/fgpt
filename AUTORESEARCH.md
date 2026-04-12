@@ -102,7 +102,7 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 | 1 | `exp-001-warmup-longer` | 10% warmup instead of 5% | `warmup_frac=0.10` | ✅ done |
 | 2 | `exp-002-lr-adamw-3e4` | AdamW LR 3e-4 | `adamw_lr=3e-4` | ✅ done |
 | 3 | `exp-003-muon-lr-025` | Muon LR higher (0.025) | `muon_lr=0.025` | ✅ done |
-| 4 | `exp-004-muon-lr-015` | Muon LR lower (0.015) | `muon_lr=0.015` | ⏳ todo |
+| 4 | `exp-004-muon-lr-015` | Muon LR lower (0.015) | `muon_lr=0.015` | ✅ done |
 | 5 | `exp-005-rope-base-100k` | RoPE base freq 100k (LLaMA-3 style) | `RotaryEmbedding(base=100000)` | ⏳ todo |
 | 6 | `exp-006-qk-norm` | QK normalization | Add `RMSNorm` on Q and K before attention | ⏳ todo |
 | 7 | `exp-007-parallel-attn-mlp` | Parallel attention + MLP (PaLM style) | Compute attn and MLP in parallel, sum residuals | ⏳ todo |
@@ -138,8 +138,9 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 |------|-----|----------|-------------|
 | 1 | `exp-003-muon-lr-025` | 5.3898 | Muon LR 0.025 (higher) |
 | 2 | `exp-002-lr-adamw-3e4` | 5.4101 | AdamW LR 3e-4 vs 2e-4 |
-| 3 | `exp-000-baseline` | 5.5235 | current config unchanged |
-| 4 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
+| 3 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
+| 4 | `exp-000-baseline` | 5.5235 | current config unchanged |
+| 5 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
 
 *Auto-updated by `run_experiment.py` after each run — see `experiments/results.jsonl` for full data.*
 
@@ -151,6 +152,7 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 - **Small changes only.** One variable at a time. If a run beats baseline, merge it into the baseline config for the next experiment.
 - **If signal is too noisy**, consider switching to an 85M model config for quick iteration (add it as `FGPTConfigSmall`), then validate winners on the full 600M model.
 - **Git tags** mark each experiment's code state. Use `git show <tag>` to see exactly what changed.
+- **Revert code changes after each run.** If an experiment requires modifying source files (e.g. model architecture, attention, MLP), those changes **must be reverted** before launching the next experiment. Only hyperparameter flags passed via CLI are automatically scoped to a single run. Structural code edits are not — failing to revert them would corrupt subsequent baselines.
 
 ---
 
