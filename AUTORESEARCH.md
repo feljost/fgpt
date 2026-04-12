@@ -105,7 +105,7 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 | 4 | `exp-004-muon-lr-015` | Muon LR lower (0.015) | `muon_lr=0.015` | ✅ done |
 | 5 | `exp-005-rope-base-100k` | RoPE base freq 100k (LLaMA-3 style) | `RotaryEmbedding(base=100000)` | ✅ done |
 | 6 | `exp-006-qk-norm` | QK normalization | Add `RMSNorm` on Q and K before attention | ✅ done |
-| 7 | `exp-007-parallel-attn-mlp` | Parallel attention + MLP (PaLM style) | Compute attn and MLP in parallel, sum residuals | ⏳ todo |
+| 7 | `exp-007-parallel-attn-mlp` | Parallel attention + MLP (PaLM style) | Compute attn and MLP in parallel, sum residuals | ✅ done |
 | 8 | `exp-008-geglu` | GeGLU instead of SwiGLU | Replace `F.silu` gate with `F.gelu` in MLP | ⏳ todo |
 | 9 | `exp-009-n-head-16` | Fewer, larger heads (head_dim 78) | `n_head=16` (same param count) | ⏳ todo |
 | 10 | `exp-010-logit-softcap` | Soft-cap logits (Gemma 2 style) | `logits = tanh(logits/30)*30` before CE loss | ⏳ todo |
@@ -136,13 +136,14 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 
 | Rank | Tag | Val Loss | Description |
 |------|-----|----------|-------------|
-| 1 | `exp-003-muon-lr-025` | 5.3898 | Muon LR 0.025 (higher) |
-| 2 | `exp-005-rope-base-100k` | 5.4097 | RoPE base 100k (LLaMA-3 style) |
-| 3 | `exp-002-lr-adamw-3e4` | 5.4101 | AdamW LR 3e-4 vs 2e-4 |
-| 4 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
-| 5 | `exp-000-baseline` | 5.5235 | current config unchanged |
-| 6 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
-| 7 | `exp-006-qk-norm` | 5.6449 | QK normalization per-head |
+| 1 | `exp-007-parallel-attn-mlp` | 5.1336 | Parallel attn+MLP (PaLM style) |
+| 2 | `exp-003-muon-lr-025` | 5.3898 | Muon LR 0.025 (higher) |
+| 3 | `exp-005-rope-base-100k` | 5.4097 | RoPE base 100k (LLaMA-3 style) |
+| 4 | `exp-002-lr-adamw-3e4` | 5.4101 | AdamW LR 3e-4 vs 2e-4 |
+| 5 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
+| 6 | `exp-000-baseline` | 5.5235 | current config unchanged |
+| 7 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
+| 8 | `exp-006-qk-norm` | 5.6449 | QK normalization per-head |
 
 *Auto-updated by `run_experiment.py` after each run — see `experiments/results.jsonl` for full data.*
 

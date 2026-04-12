@@ -27,6 +27,9 @@ class FGPTConfig:
     # RoPE base frequency. Default 10000 matches GPT-NeoX / original RoPE paper.
     # LLaMA-3 uses 500000; common alternatives are 20000, 100000.
     rope_base: int = 10000
+    # PaLM-style parallel attention+MLP: compute both on the same normed input,
+    # then add both residuals together. Removes one norm per block.
+    parallel_attn_mlp: bool = False
 
 
 class CausalSelfAttention(nn.Module):
@@ -105,16 +108,21 @@ class MLP(nn.Module):
 class Block(nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.parallel = config.parallel_attn_mlp
         self.ln_1 = nn.RMSNorm(config.n_embd)
         self.attn = CausalSelfAttention(config)
-        self.ln_2 = nn.RMSNorm(config.n_embd)
+        if not self.parallel:
+            self.ln_2 = nn.RMSNorm(config.n_embd)
         self.mlp = MLP(config)
 
     def forward(self, x):
-        # first we go through layer norm, that is fed into attention
-        # then we go through layer norm again, that is fed into MLP
-        x = x + self.attn(self.ln_1(x))
-        x = x + self.mlp(self.ln_2(x))
+        if self.parallel:
+            # PaLM style: attn and MLP share one norm, residuals summed together
+            normed = self.ln_1(x)
+            x = x + self.attn(normed) + self.mlp(normed)
+        else:
+            x = x + self.attn(self.ln_1(x))
+            x = x + self.mlp(self.ln_2(x))
         return x
 
 
