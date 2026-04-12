@@ -104,7 +104,7 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 | 3 | `exp-003-muon-lr-025` | Muon LR higher (0.025) | `muon_lr=0.025` | ✅ done |
 | 4 | `exp-004-muon-lr-015` | Muon LR lower (0.015) | `muon_lr=0.015` | ✅ done |
 | 5 | `exp-005-rope-base-100k` | RoPE base freq 100k (LLaMA-3 style) | `RotaryEmbedding(base=100000)` | ✅ done |
-| 6 | `exp-006-qk-norm` | QK normalization | Add `RMSNorm` on Q and K before attention | ⏳ todo |
+| 6 | `exp-006-qk-norm` | QK normalization | Add `RMSNorm` on Q and K before attention | ✅ done |
 | 7 | `exp-007-parallel-attn-mlp` | Parallel attention + MLP (PaLM style) | Compute attn and MLP in parallel, sum residuals | ⏳ todo |
 | 8 | `exp-008-geglu` | GeGLU instead of SwiGLU | Replace `F.silu` gate with `F.gelu` in MLP | ⏳ todo |
 | 9 | `exp-009-n-head-16` | Fewer, larger heads (head_dim 78) | `n_head=16` (same param count) | ⏳ todo |
@@ -142,6 +142,7 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 | 4 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
 | 5 | `exp-000-baseline` | 5.5235 | current config unchanged |
 | 6 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
+| 7 | `exp-006-qk-norm` | 5.6449 | QK normalization per-head |
 
 *Auto-updated by `run_experiment.py` after each run — see `experiments/results.jsonl` for full data.*
 
