@@ -8,8 +8,7 @@ Reads experiments/results.jsonl and writes experiments/plots/progress.png.
 """
 
 import json
-import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -33,6 +32,7 @@ def load_results(path=RESULTS_FILE):
 def plot(results, out_path=None):
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         import matplotlib.ticker as ticker
@@ -53,7 +53,10 @@ def plot(results, out_path=None):
     descriptions = [r.get("description", "") for r in results]
 
     # Compute x as hours elapsed since first experiment started
-    t0 = datetime.fromisoformat(results[0]["timestamp"]) - timedelta(seconds=results[0].get("duration_s", 0))
+    t0 = datetime.fromisoformat(results[0]["timestamp"]) - timedelta(
+        seconds=results[0].get("duration_s", 0)
+    )
+
     def end_hours(r):
         ts = datetime.fromisoformat(r["timestamp"])
         return (ts - t0).total_seconds() / 3600
@@ -85,11 +88,20 @@ def plot(results, out_path=None):
 
     # Highlight best
     best_x = xs[ys.index(best_loss)]
-    ax.scatter([best_x], [best_loss], s=120, color="#d7191c", zorder=4, label=f"Best: {best_loss:.4f}")
+    ax.scatter(
+        [best_x],
+        [best_loss],
+        s=120,
+        color="#d7191c",
+        zorder=4,
+        label=f"Best: {best_loss:.4f}",
+    )
 
     ax.set_xlabel("Time elapsed (hours)", fontsize=12)
     ax.set_ylabel("Validation Loss", fontsize=12)
-    ax.set_title("FGPT Autoresearch — Val Loss Progress", fontsize=14, fontweight="bold")
+    ax.set_title(
+        "FGPT Autoresearch — Val Loss Progress", fontsize=14, fontweight="bold"
+    )
     ax.xaxis.set_major_formatter(ticker.FormatStrFormatter("%.1fh"))
     ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.4f"))
     ax.grid(True, alpha=0.3)
@@ -106,7 +118,9 @@ def main():
     if results:
         print(f"Found {len(results)} experiments:")
         for i, r in enumerate(results):
-            print(f"  [{i}] {r['tag']:35s}  val_loss={r['val_loss']:.4f}  ({r['description']})")
+            print(
+                f"  [{i}] {r['tag']:35s}  val_loss={r['val_loss']:.4f}  ({r['description']})"
+            )
         print()
     plot(results)
 
