@@ -139,7 +139,6 @@ def run_experiment(
     plateau_frac: float = 0.0,
     rope_base: int = 10000,
     n_head: int = 24,
-    logit_softcap: float = 0.0,
     # Per-experiment reasoning (written into the notes file)
     reasoning: str = "",
 ):
@@ -161,7 +160,7 @@ def run_experiment(
     # ── Model ────────────────────────────────────────────────────
     # Enable gradient checkpointing to fit in 80 GB (production ran on 96 GB GH200).
     # Recomputes each block during backward instead of storing all 32 layers.
-    cfg = FGPTConfig(gradient_checkpointing=True, rope_base=rope_base, n_head=n_head, logit_softcap=logit_softcap)
+    cfg = FGPTConfig(gradient_checkpointing=True, rope_base=rope_base, n_head=n_head)
     model = FGPT(cfg)
     model.to("cuda")
     torch.set_float32_matmul_precision("medium")
@@ -343,7 +342,6 @@ def main():
     parser.add_argument("--warmup-frac", type=float, default=0.05)
     parser.add_argument("--rope-base", type=int, default=10000)
     parser.add_argument("--n-head", type=int, default=24)
-    parser.add_argument("--logit-softcap", type=float, default=0.0)
     parser.add_argument("--reasoning", type=str, default="")
     args = parser.parse_args()
 
@@ -358,7 +356,6 @@ def main():
         warmup_frac=args.warmup_frac,
         rope_base=args.rope_base,
         n_head=args.n_head,
-        logit_softcap=args.logit_softcap,
         reasoning=args.reasoning,
     )
 
