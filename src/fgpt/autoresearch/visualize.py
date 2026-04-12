@@ -9,9 +9,10 @@ Reads experiments/results.jsonl and writes experiments/plots/progress.png.
 
 import json
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 RESULTS_FILE = REPO_ROOT / "experiments" / "results.jsonl"
 PLOTS_DIR = REPO_ROOT / "experiments" / "plots"
 
@@ -47,10 +48,17 @@ def plot(results, out_path=None):
     if out_path is None:
         out_path = PLOTS_DIR / "progress.png"
 
-    xs = list(range(len(results)))
     ys = [r["val_loss"] for r in results]
     tags = [r["tag"] for r in results]
     descriptions = [r.get("description", "") for r in results]
+
+    # Compute x as hours elapsed since first experiment started
+    t0 = datetime.fromisoformat(results[0]["timestamp"]) - timedelta(seconds=results[0].get("duration_s", 0))
+    def end_hours(r):
+        ts = datetime.fromisoformat(r["timestamp"])
+        return (ts - t0).total_seconds() / 3600
+
+    xs = [end_hours(r) for r in results]
 
     fig, ax = plt.subplots(figsize=(max(10, len(results) * 1.4), 6))
 
@@ -76,14 +84,13 @@ def plot(results, out_path=None):
         )
 
     # Highlight best
-    best_idx = ys.index(best_loss)
-    ax.scatter([best_idx], [best_loss], s=120, color="#d7191c", zorder=4, label=f"Best: {best_loss:.4f}")
+    best_x = xs[ys.index(best_loss)]
+    ax.scatter([best_x], [best_loss], s=120, color="#d7191c", zorder=4, label=f"Best: {best_loss:.4f}")
 
-    ax.set_xlabel("Experiment", fontsize=12)
+    ax.set_xlabel("Time elapsed (hours)", fontsize=12)
     ax.set_ylabel("Validation Loss", fontsize=12)
     ax.set_title("FGPT Autoresearch — Val Loss Progress", fontsize=14, fontweight="bold")
-    ax.set_xticks(xs)
-    ax.set_xticklabels([str(i) for i in xs])
+    ax.xaxis.set_major_formatter(ticker.FormatStrFormatter("%.1fh"))
     ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.4f"))
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=10)
