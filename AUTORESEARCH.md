@@ -179,20 +179,21 @@ The first two experiments (017, 018) re-validate the other phase 1 architectural
 | Rank | Tag | Val Loss | Description |
 |------|-----|----------|-------------|
 | 1 | `exp-017-compound-n-head-16` | 4.2090 | n_head=16 on parallel baseline |
-| 2 | `exp-007-parallel-attn-mlp` | 5.1336 | Parallel attn+MLP (PaLM style) |
-| 3 | `exp-009-n-head-16` | 5.3510 | 16 heads instead of 24 (larger head_dim) |
-| 4 | `exp-016-no-weight-tying` | 5.3643 | Untied lm_head and wte weights |
-| 5 | `exp-008-geglu` | 5.3875 | GeGLU instead of SwiGLU |
-| 6 | `exp-003-muon-lr-025` | 5.3898 | Muon LR 0.025 (higher) |
-| 7 | `exp-015-weight-decay-005` | 5.3914 | Weight decay 0.05 instead of 0.1 |
-| 8 | `exp-010-logit-softcap` | 5.3939 | Soft-cap logits at 30 (Gemma 2 style) |
-| 9 | `exp-005-rope-base-100k` | 5.4097 | RoPE base 100k (LLaMA-3 style) |
-| 10 | `exp-002-lr-adamw-3e4` | 5.4101 | AdamW LR 3e-4 vs 2e-4 |
-| 11 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
-| 12 | `exp-000-baseline` | 5.5235 | current config unchanged |
-| 13 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
-| 14 | `exp-006-qk-norm` | 5.6449 | QK normalization per-head |
-| 15 | `exp-011-z-loss` | 5.7478 | Auxiliary z-loss on logits (1e-4) |
+| 2 | `exp-018-compound-geglu` | 4.2176 | GeGLU on parallel+n16 baseline |
+| 3 | `exp-007-parallel-attn-mlp` | 5.1336 | Parallel attn+MLP (PaLM style) |
+| 4 | `exp-009-n-head-16` | 5.3510 | 16 heads instead of 24 (larger head_dim) |
+| 5 | `exp-016-no-weight-tying` | 5.3643 | Untied lm_head and wte weights |
+| 6 | `exp-008-geglu` | 5.3875 | GeGLU instead of SwiGLU |
+| 7 | `exp-003-muon-lr-025` | 5.3898 | Muon LR 0.025 (higher) |
+| 8 | `exp-015-weight-decay-005` | 5.3914 | Weight decay 0.05 instead of 0.1 |
+| 9 | `exp-010-logit-softcap` | 5.3939 | Soft-cap logits at 30 (Gemma 2 style) |
+| 10 | `exp-005-rope-base-100k` | 5.4097 | RoPE base 100k (LLaMA-3 style) |
+| 11 | `exp-002-lr-adamw-3e4` | 5.4101 | AdamW LR 3e-4 vs 2e-4 |
+| 12 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
+| 13 | `exp-000-baseline` | 5.5235 | current config unchanged |
+| 14 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
+| 15 | `exp-006-qk-norm` | 5.6449 | QK normalization per-head |
+| 16 | `exp-011-z-loss` | 5.7478 | Auxiliary z-loss on logits (1e-4) |
 
 *Auto-updated by `run_experiment.py` after each run — see `experiments/results.jsonl` for full data.*
 
