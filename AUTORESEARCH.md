@@ -107,12 +107,9 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 | 6 | `exp-006-qk-norm` | QK normalization | Add `RMSNorm` on Q and K before attention | ✅ done |
 | 7 | `exp-007-parallel-attn-mlp` | Parallel attention + MLP (PaLM style) | Compute attn and MLP in parallel, sum residuals | ✅ done |
 | 8 | `exp-008-geglu` | GeGLU instead of SwiGLU | Replace `F.silu` gate with `F.gelu` in MLP | ✅ done |
-| 9 | `exp-009-n-head-16` | Fewer, larger heads (head_dim 78) | `n_head=16` (same param count) | ⏳ todo |
+| 9 | `exp-009-n-head-16` | Fewer, larger heads (head_dim 78) | `n_head=16` (same param count) | ✅ done |
 | 10 | `exp-010-logit-softcap` | Soft-cap logits (Gemma 2 style) | `logits = tanh(logits/30)*30` before CE loss | ⏳ todo |
 | 11 | `exp-011-z-loss` | auxiliary logit z-loss | Add `z_loss = 1e-4 * logits.logsumexp(-1).pow(2).mean()` | ⏳ todo |
-| 12 | `exp-012-min-lr-01` | Higher min LR ratio (0.1 vs 0.05) | `min_lr_ratio=0.1` — less aggressive decay | ⏳ todo |
-| 13 | `exp-013-plateau-10pct` | 10% plateau at peak LR | `plateau_frac=0.10` before cosine decay | ⏳ todo |
-| 14 | `exp-014-grad-clip-03` | lower grad clip throughout | `norm_clip=0.3` always (vs 0.5/1.0 schedule) | ⏳ todo |
 | 15 | `exp-015-weight-decay-005` | lower weight decay (0.05) | `weight_decay=0.05` in AdamW | ⏳ todo |
 | 16 | `exp-016-no-weight-tying` | untie lm_head from wte | Separate `lm_head` and `wte` weights | ⏳ todo |
 | 17 | `exp-017-deeper-narrower` | 40 layers, n_embd=1120 | `n_layer=40, n_embd=1120` (~same params) | ⏳ todo |
@@ -137,14 +134,15 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 | Rank | Tag | Val Loss | Description |
 |------|-----|----------|-------------|
 | 1 | `exp-007-parallel-attn-mlp` | 5.1336 | Parallel attn+MLP (PaLM style) |
-| 2 | `exp-008-geglu` | 5.3875 | GeGLU instead of SwiGLU |
-| 3 | `exp-003-muon-lr-025` | 5.3898 | Muon LR 0.025 (higher) |
-| 4 | `exp-005-rope-base-100k` | 5.4097 | RoPE base 100k (LLaMA-3 style) |
-| 5 | `exp-002-lr-adamw-3e4` | 5.4101 | AdamW LR 3e-4 vs 2e-4 |
-| 6 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
-| 7 | `exp-000-baseline` | 5.5235 | current config unchanged |
-| 8 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
-| 9 | `exp-006-qk-norm` | 5.6449 | QK normalization per-head |
+| 2 | `exp-009-n-head-16` | 5.3510 | 16 heads instead of 24 (larger head_dim) |
+| 3 | `exp-008-geglu` | 5.3875 | GeGLU instead of SwiGLU |
+| 4 | `exp-003-muon-lr-025` | 5.3898 | Muon LR 0.025 (higher) |
+| 5 | `exp-005-rope-base-100k` | 5.4097 | RoPE base 100k (LLaMA-3 style) |
+| 6 | `exp-002-lr-adamw-3e4` | 5.4101 | AdamW LR 3e-4 vs 2e-4 |
+| 7 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
+| 8 | `exp-000-baseline` | 5.5235 | current config unchanged |
+| 9 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
+| 10 | `exp-006-qk-norm` | 5.6449 | QK normalization per-head |
 
 *Auto-updated by `run_experiment.py` after each run — see `experiments/results.jsonl` for full data.*
 
