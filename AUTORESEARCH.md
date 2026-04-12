@@ -109,7 +109,7 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 | 8 | `exp-008-geglu` | GeGLU instead of SwiGLU | Replace `F.silu` gate with `F.gelu` in MLP | ✅ done |
 | 9 | `exp-009-n-head-16` | Fewer, larger heads (head_dim 78) | `n_head=16` (same param count) | ✅ done |
 | 10 | `exp-010-logit-softcap` | Soft-cap logits (Gemma 2 style) | `logits = tanh(logits/30)*30` before CE loss | ✅ done |
-| 11 | `exp-011-z-loss` | auxiliary logit z-loss | Add `z_loss = 1e-4 * logits.logsumexp(-1).pow(2).mean()` | ⏳ todo |
+| 11 | `exp-011-z-loss` | auxiliary logit z-loss | Add `z_loss = 1e-4 * logits.logsumexp(-1).pow(2).mean()` | ✅ done |
 | 15 | `exp-015-weight-decay-005` | lower weight decay (0.05) | `weight_decay=0.05` in AdamW | ⏳ todo |
 | 16 | `exp-016-no-weight-tying` | untie lm_head from wte | Separate `lm_head` and `wte` weights | ⏳ todo |
 | 17 | `exp-017-deeper-narrower` | 40 layers, n_embd=1120 | `n_layer=40, n_embd=1120` (~same params) | ⏳ todo |
@@ -144,6 +144,7 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 | 9 | `exp-000-baseline` | 5.5235 | current config unchanged |
 | 10 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
 | 11 | `exp-006-qk-norm` | 5.6449 | QK normalization per-head |
+| 12 | `exp-011-z-loss` | 5.7478 | Auxiliary z-loss on logits (1e-4) |
 
 *Auto-updated by `run_experiment.py` after each run — see `experiments/results.jsonl` for full data.*
 

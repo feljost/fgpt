@@ -27,6 +27,9 @@ class FGPTConfig:
     # RoPE base frequency. Default 10000 matches GPT-NeoX / original RoPE paper.
     # LLaMA-3 uses 500000; common alternatives are 20000, 100000.
     rope_base: int = 10000
+    # Auxiliary z-loss on logits: penalizes large log-partition function.
+    # z_loss = z_loss_coeff * logsumexp(logits)^2. 0.0 = disabled.
+    z_loss_coeff: float = 0.0
 
 
 class CausalSelfAttention(nn.Module):
@@ -173,6 +176,9 @@ class FGPT(nn.Module):
         loss = None
         if targets is not None:
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+            if self.config.z_loss_coeff > 0.0:
+                z_loss = self.config.z_loss_coeff * logits.logsumexp(-1).pow(2).mean()
+                loss = loss + z_loss
 
         return logits, loss
 
