@@ -23,12 +23,32 @@ This means every experiment is directly comparable: same model init, same data, 
 
 ---
 
+## Environment
+
+Always use the uv-managed venv at `/root/fgpt/.venv`. Either activate it first or prefix commands with the full python path:
+
+```bash
+source /root/fgpt/.venv/bin/activate
+# or use the full path directly:
+/root/fgpt/.venv/bin/python -m fgpt.autoresearch.run_experiment ...
+```
+
+The venv is managed by `uv`. To install/sync dependencies: `uv sync` from the repo root.
+
+## Model Scale
+
+Experiments always use the **full 600M parameter model** (`n_layer=32, n_head=24, n_embd=1248`). Do not change the number of parameters — the goal is insights applicable to the actual production model.
+
+**Architecture changes are allowed** (e.g. QK-norm, different attention mechanisms, activation functions, normalization placement), as long as the total parameter count stays roughly the same.
+
+---
+
 ## One-Time Setup
 
 Generate the fixed val batches (only needs to happen once):
 
 ```bash
-cd src/fgpt
+source /root/fgpt/.venv/bin/activate
 python -m fgpt.autoresearch.fixed_val
 ```
 

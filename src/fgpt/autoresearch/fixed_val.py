@@ -19,7 +19,7 @@ sys.path.insert(0, str(_SRC_FGPT))
 from fgpt.data.loaders import BaseDataLoader
 from model import B, T
 
-FIXED_VAL_PATH = Path(__file__).resolve().parents[4] / "experiments" / "fixed_val_batches.pt"
+FIXED_VAL_PATH = Path(__file__).resolve().parents[3] / "experiments" / "fixed_val_batches.pt"
 NUM_VAL_BATCHES = 64
 VAL_SEED = 9999  # separate seed from train seed pool
 

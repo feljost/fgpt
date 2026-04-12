@@ -37,6 +37,7 @@ def log_train_metrics(
     dataloader_val,
     val_batches,
     now_str=now_str,
+    disable_heavy_evals=False,
 ):
     pbar.write(
         f"Step: {step} | Loss: {loss:.4f} | norm {norm:.2f} | "
@@ -58,7 +59,7 @@ def log_train_metrics(
     if step % 512 == 0:
         metrics["val_loss"] = calculate_val_loss(model, val_batches)
 
-    if step % 25_000 == 0:
+    if not disable_heavy_evals and step % 25_000 == 0:
         metrics["hellaswag_acc"] = hellaswag_eval_base(model, pbar)
 
     if step % 12 == 0 or step % 25_000 == 0 or step % 256 == 0:
@@ -85,11 +86,17 @@ def calculate_val_loss(model, val_batches):
     losses = []
     with torch.no_grad():
         for x_val, y_val in val_batches:
-            x_val, y_val = x_val.to("cuda"), y_val.to("cuda")
+            x_val = x_val.to("cuda")
+            y_val = y_val.to("cuda")
             with torch.autocast("cuda", dtype=torch.bfloat16):
-                _, val_loss = model(x_val, y_val)
+                logits_val, val_loss = model(x_val, y_val)
             losses.append(val_loss.item())
+            del x_val, y_val, logits_val, val_loss  # free GPU tensors immediately
     model.train()
+    # Release cached allocator blocks so the training forward pass isn't starved.
+    # Without this, 64 val batches leave ~20 GB cached, causing OOM at the next
+    # training step when the logits buffer (3.84 GB) can't be allocated.
+    torch.cuda.empty_cache()
     return sum(losses) / len(losses)
 
 
@@ -183,13 +190,16 @@ def train(
     current_step,
     accumulation_steps,
     max_time_seconds=None,
+    disable_heavy_evals=False,
 ):
     """Train the model.
 
     Args:
         max_time_seconds: If set, stop training after this many wall-clock seconds
-            instead of running to num_steps. The step count still determines the
-            LR schedule so the schedule is shared with a full run.
+            instead of running to num_steps.
+        disable_heavy_evals: Skip HellaSwag eval and sample generation. Use this
+            for short autoresearch runs where only val_loss matters and the heavy
+            evals would fragment GPU memory and waste time.
 
     Returns:
         final_val_loss: Val loss on the fixed val_batches at the end of training.
@@ -242,6 +252,10 @@ def train(
             # Zero grad for BOTH
             opt_muon.zero_grad()
             opt_adamw.zero_grad()
+            # Muon's Newton-Schulz iteration leaves large temporary matrices
+            # (G.T @ G etc.) in the PyTorch cache. Release them immediately so
+            # the next accumulation cycle's forward pass can allocate freely.
+            torch.cuda.empty_cache()
 
         torch.cuda.synchronize()
         t1 = time.time()
@@ -264,9 +278,10 @@ def train(
             dataloader_val=dataloader_val,
             val_batches=val_batches,
             now_str=now_str,
+            disable_heavy_evals=disable_heavy_evals,
         )
 
-        if i % 2048 == 0:
+        if not disable_heavy_evals and i % 2048 == 0:
             log_sample_output(model, pbar, step=i, now_str=now_str)
 
         if i % 10_000 == 0 and i > 0:

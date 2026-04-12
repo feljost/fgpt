@@ -1,7 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from torch.utils.checkpoint import checkpoint as grad_checkpoint
 from rotary_embedding_torch import RotaryEmbedding
 
 B = 40  # batch size
@@ -19,6 +20,10 @@ class FGPTConfig:
     n_embd: int = (
         1248  # embedding dimension -> number of features in each token embedding
     )
+    # Recompute activations during backward instead of storing all 32 layers.
+    # Reduces activation memory from ~63 GB to ~2 GB at ~33% compute cost.
+    # Enable for autoresearch runs on 80 GB H100 (production used 96 GB GH200).
+    gradient_checkpointing: bool = False
 
 
 class CausalSelfAttention(nn.Module):
@@ -157,7 +162,10 @@ class FGPT(nn.Module):
         x = self.transformer.wte(idx)  # (B, T, n_embd) token embeddings
 
         for block in self.transformer.h:
-            x = block(x)
+            if self.config.gradient_checkpointing and self.training:
+                x = grad_checkpoint(block, x, use_reentrant=False)
+            else:
+                x = block(x)
 
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x)

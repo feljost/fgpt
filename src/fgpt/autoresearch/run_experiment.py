@@ -19,10 +19,14 @@ Each run:
 import argparse
 import json
 import math
+import os
 import random
 import subprocess
 import sys
 import time
+
+# Must be set before importing torch to take effect
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 from datetime import datetime
 from functools import partial
 from pathlib import Path
@@ -44,7 +48,7 @@ from base_train import (
     train,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 EXPERIMENTS_DIR = REPO_ROOT / "experiments"
 RESULTS_FILE = EXPERIMENTS_DIR / "results.jsonl"
 NOTES_DIR = EXPERIMENTS_DIR / "notes"
@@ -64,9 +68,11 @@ def _git(args, check=True):
 _TOKENS_PER_SEC = 81_000
 
 
-def _estimate_microsteps(duration_minutes: float, B: int, T: int) -> int:
+_B_TRAIN = 64  # gradient checkpointing keeps mem ~const; B=64 uses ~49 GB on H100
+
+def _estimate_microsteps(duration_minutes: float, T: int) -> int:
     """Estimate how many microsteps fit in duration_minutes at observed throughput."""
-    tokens_per_microstep = B * T
+    tokens_per_microstep = _B_TRAIN * T
     return int(duration_minutes * 60 * _TOKENS_PER_SEC / tokens_per_microstep)
 
 
@@ -76,7 +82,7 @@ def run_experiment(
     duration_minutes: float = 30.0,
     seed: int = 42,
     # Training hyperparams — override these per experiment
-    accumulation_steps: int = 12,
+    accumulation_steps: int = 8,  # 64*1024*8 = 524,288 tokens ≈ original 491,520
     start_lr_adamw: float = 2e-4,
     start_lr_muon: float = 0.02,
     min_lr_ratio: float = 0.05,
@@ -87,7 +93,7 @@ def run_experiment(
 ):
     # Scale the LR schedule to the actual run length so warmup/decay are meaningful.
     # With 1M-step defaults, every 30-min run sits entirely inside warmup.
-    total_schedule_steps = _estimate_microsteps(duration_minutes, B, T)
+    total_schedule_steps = _estimate_microsteps(duration_minutes, T)
 
     print(f"\n{'='*60}")
     print(f"EXPERIMENT: {tag}")
@@ -101,12 +107,20 @@ def run_experiment(
     random.seed(seed)
 
     # ── Model ────────────────────────────────────────────────────
-    model = FGPT(FGPTConfig())
+    # Enable gradient checkpointing to fit in 80 GB (production ran on 96 GB GH200).
+    # Recomputes each block during backward instead of storing all 32 layers.
+    cfg = FGPTConfig(gradient_checkpointing=True)
+    model = FGPT(cfg)
     model.to("cuda")
     torch.set_float32_matmul_precision("medium")
 
     # ── Data ─────────────────────────────────────────────────────
-    dataloader_train = BaseDataLoader(B, T, split="train", seed=seed)
+    # With gradient checkpointing, activation memory is ~constant (one layer at
+    # a time). What scales with B is only the logits + CE-backward tensors.
+    # At B=64: ~49 GB used (vs 38.7 GB at B=32), well within 80 GB.
+    # Effective batch: 64*1024*8 = 524,288 tokens ≈ original 491,520.
+    B_TRAIN = 64
+    dataloader_train = BaseDataLoader(B_TRAIN, T, split="train", seed=seed)
     val_batches = load_fixed_val_batches(FIXED_VAL_PATH)
 
     # ── Optimizers & Schedulers ───────────────────────────────────
@@ -129,8 +143,12 @@ def run_experiment(
     sched_adamw = torch.optim.lr_scheduler.LambdaLR(opt_adamw, scheduler_lambda)
     sched_muon = torch.optim.lr_scheduler.LambdaLR(opt_muon, scheduler_lambda)
 
-    # ── Compile & Train ───────────────────────────────────────────
-    model = torch.compile(model)
+    # ── Train ─────────────────────────────────────────────────────
+    # Note: torch.compile is intentionally omitted for autoresearch runs.
+    # Compile adds ~25 GB of inductor buffer overhead on H100 that causes OOM
+    # with the 600M model + Muon optimizer state. Uncompiled eager mode fits
+    # in 80 GB comfortably and all experiments are equally affected, so
+    # relative comparisons remain valid. Production training still uses compile.
 
     wall_start = time.time()
     final_val_loss = train(
@@ -146,6 +164,7 @@ def run_experiment(
         current_step=0,
         accumulation_steps=accumulation_steps,
         max_time_seconds=duration_minutes * 60,
+        disable_heavy_evals=True,
     )
     wall_end = time.time()
     duration_s = wall_end - wall_start
@@ -217,7 +236,7 @@ def main():
     parser.add_argument("--description", required=True, help="3-5 word description")
     parser.add_argument("--duration-minutes", type=float, default=30.0)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--accumulation-steps", type=int, default=12)
+    parser.add_argument("--accumulation-steps", type=int, default=8)
     parser.add_argument("--adamw-lr", type=float, default=2e-4)
     parser.add_argument("--muon-lr", type=float, default=0.02)
     parser.add_argument("--warmup-frac", type=float, default=0.05)
