@@ -27,6 +27,9 @@ class FGPTConfig:
     # RoPE base frequency. Default 10000 matches GPT-NeoX / original RoPE paper.
     # LLaMA-3 uses 500000; common alternatives are 20000, 100000.
     rope_base: int = 10000
+    # Gemma 2-style logit soft-cap: tanh(logits/cap)*cap before CE loss.
+    # Prevents logit blow-up and stabilizes cross-entropy. cap=0 means disabled.
+    logit_softcap: float = 0.0
 
 
 class CausalSelfAttention(nn.Module):
@@ -170,6 +173,9 @@ class FGPT(nn.Module):
 
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x)
+        if self.config.logit_softcap > 0.0:
+            cap = self.config.logit_softcap
+            logits = torch.tanh(logits / cap) * cap
         loss = None
         if targets is not None:
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
