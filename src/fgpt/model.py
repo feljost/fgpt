@@ -16,7 +16,7 @@ class FGPTConfig:
         50304  # GPT-2's vocab size 50257 --> set to power of 2 for faster cuda
     )
     n_layer: int = 32
-    n_head: int = 24
+    n_head: int = 16  # merged after exp-017: parallel+n_head=16 → 4.2090 (-0.92 vs phase2 start)
     n_embd: int = (
         1248  # embedding dimension -> number of features in each token embedding
     )
