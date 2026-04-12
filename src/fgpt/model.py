@@ -24,6 +24,12 @@ class FGPTConfig:
     # Reduces activation memory from ~63 GB to ~2 GB at ~33% compute cost.
     # Enable for autoresearch runs on 80 GB H100 (production used 96 GB GH200).
     gradient_checkpointing: bool = False
+    # RoPE base frequency. Default 10000 matches GPT-NeoX / original RoPE paper.
+    # LLaMA-3 uses 500000; common alternatives are 20000, 100000.
+    rope_base: int = 10000
+    # QK normalization: apply RMSNorm to Q and K per-head before attention.
+    # Stabilizes attention logit scale (used in Chameleon, PaLM-2, etc.).
+    qk_norm: bool = False
 
 
 class CausalSelfAttention(nn.Module):
@@ -46,7 +52,14 @@ class CausalSelfAttention(nn.Module):
         self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
 
         # rotary embedding object
-        self.rotary_emb = RotaryEmbedding(dim = self.head_dim)
+        self.rotary_emb = RotaryEmbedding(dim=self.head_dim, theta=config.rope_base)
+
+        # Optional QK normalization (per-head RMSNorm on Q and K)
+        if config.qk_norm:
+            self.q_norm = nn.RMSNorm(self.head_dim)
+            self.k_norm = nn.RMSNorm(self.head_dim)
+        else:
+            self.q_norm = self.k_norm = None
 
     def forward(self, x):
         B, T, C = x.size()
@@ -65,7 +78,12 @@ class CausalSelfAttention(nn.Module):
         q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
         v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
 
-        # 3. Apply rotary embeddings to Q and K
+        # 3. Optional QK normalization (before RoPE)
+        if self.q_norm is not None:
+            q = self.q_norm(q)
+            k = self.k_norm(k)
+
+        # 4. Apply rotary embeddings to Q and K
         # rotary_embedding_torch expects shape (B, n_head, T, head_dim)
         q = self.rotary_emb.rotate_queries_or_keys(q)
         k = self.rotary_emb.rotate_queries_or_keys(k)

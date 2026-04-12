@@ -137,6 +137,8 @@ def run_experiment(
     min_lr_ratio: float = 0.05,
     warmup_frac: float = 0.05,
     plateau_frac: float = 0.0,
+    rope_base: int = 10000,
+    qk_norm: bool = False,
     # Per-experiment reasoning (written into the notes file)
     reasoning: str = "",
 ):
@@ -158,7 +160,7 @@ def run_experiment(
     # ── Model ────────────────────────────────────────────────────
     # Enable gradient checkpointing to fit in 80 GB (production ran on 96 GB GH200).
     # Recomputes each block during backward instead of storing all 32 layers.
-    cfg = FGPTConfig(gradient_checkpointing=True)
+    cfg = FGPTConfig(gradient_checkpointing=True, rope_base=rope_base, qk_norm=qk_norm)
     model = FGPT(cfg)
     model.to("cuda")
     torch.set_float32_matmul_precision("medium")
@@ -284,7 +286,8 @@ def run_experiment(
         f"| Muon LR | {start_lr_muon} |\n"
         f"| Warmup | {warmup_frac*100:.1f}% |\n"
         f"| Accum steps | {accumulation_steps} |\n"
-        f"| Min LR ratio | {min_lr_ratio} |\n\n"
+        f"| Min LR ratio | {min_lr_ratio} |\n"
+        f"| RoPE base | {rope_base} |\n\n"
         f"## Reasoning\n\n"
         f"{reasoning if reasoning else '_No reasoning provided._'}\n\n"
         f"## Outcome\n\n"
@@ -307,16 +310,19 @@ def run_experiment(
 
     try:
         branch = _git(["rev-parse", "--abbrev-ref", "HEAD"])
-        # Commit notes, results.jsonl, and AUTORESEARCH.md together
+        # Stage results, notes, AUTORESEARCH.md, plus any modified tracked source files
+        # (model changes, run_experiment.py changes, etc. are included so the git tag
+        # captures the full diff of what was different for this experiment)
         _git(["add",
               str(AUTORESEARCH_MD),
               str(NOTES_DIR / f"{tag}.md"),
               str(RESULTS_FILE),
         ])
+        _git(["add", "-u"])  # stage all other modified tracked files (e.g. model.py)
         _git(["commit", "-m", f"results: {tag} | val_loss={final_val_loss:.4f}"])
         _git(["push", "origin", branch])
         _git(["push", "origin", tag])
-        print(f"Committed AUTORESEARCH.md, pushed branch '{branch}' and tag '{tag}' to origin.")
+        print(f"Committed all changes, pushed branch '{branch}' and tag '{tag}' to origin.")
     except subprocess.CalledProcessError as e:
         print(f"Warning: could not commit/push to origin: {e.stderr.strip()}")
 
@@ -333,6 +339,8 @@ def main():
     parser.add_argument("--adamw-lr", type=float, default=2e-4)
     parser.add_argument("--muon-lr", type=float, default=0.02)
     parser.add_argument("--warmup-frac", type=float, default=0.05)
+    parser.add_argument("--rope-base", type=int, default=10000)
+    parser.add_argument("--qk-norm", action="store_true", default=False)
     parser.add_argument("--reasoning", type=str, default="")
     args = parser.parse_args()
 
@@ -345,6 +353,8 @@ def main():
         start_lr_adamw=args.adamw_lr,
         start_lr_muon=args.muon_lr,
         warmup_frac=args.warmup_frac,
+        rope_base=args.rope_base,
+        qk_norm=args.qk_norm,
         reasoning=args.reasoning,
     )
 
