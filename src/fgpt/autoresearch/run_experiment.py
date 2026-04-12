@@ -138,7 +138,6 @@ def run_experiment(
     warmup_frac: float = 0.05,
     plateau_frac: float = 0.0,
     rope_base: int = 10000,
-    qk_norm: bool = False,
     # Per-experiment reasoning (written into the notes file)
     reasoning: str = "",
 ):
@@ -160,7 +159,7 @@ def run_experiment(
     # ── Model ────────────────────────────────────────────────────
     # Enable gradient checkpointing to fit in 80 GB (production ran on 96 GB GH200).
     # Recomputes each block during backward instead of storing all 32 layers.
-    cfg = FGPTConfig(gradient_checkpointing=True, rope_base=rope_base, qk_norm=qk_norm)
+    cfg = FGPTConfig(gradient_checkpointing=True, rope_base=rope_base)
     model = FGPT(cfg)
     model.to("cuda")
     torch.set_float32_matmul_precision("medium")
@@ -340,7 +339,6 @@ def main():
     parser.add_argument("--muon-lr", type=float, default=0.02)
     parser.add_argument("--warmup-frac", type=float, default=0.05)
     parser.add_argument("--rope-base", type=int, default=10000)
-    parser.add_argument("--qk-norm", action="store_true", default=False)
     parser.add_argument("--reasoning", type=str, default="")
     args = parser.parse_args()
 
@@ -354,7 +352,6 @@ def main():
         start_lr_muon=args.muon_lr,
         warmup_frac=args.warmup_frac,
         rope_base=args.rope_base,
-        qk_norm=args.qk_norm,
         reasoning=args.reasoning,
     )
 
