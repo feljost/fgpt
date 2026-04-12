@@ -140,6 +140,7 @@ def run_experiment(
     rope_base: int = 10000,
     n_head: int = 24,
     batch_size: int = 64,
+    weight_decay: float = 0.1,
     # Per-experiment reasoning (written into the notes file)
     reasoning: str = "",
 ):
@@ -177,7 +178,7 @@ def run_experiment(
 
     # ── Optimizers & Schedulers ───────────────────────────────────
     opt_muon, opt_adamw = configure_optimizers(
-        model, adamw_lr=start_lr_adamw, muon_lr=start_lr_muon
+        model, adamw_lr=start_lr_adamw, muon_lr=start_lr_muon, weight_decay=weight_decay
     )
 
     total_updates = math.ceil(total_schedule_steps / accumulation_steps)
@@ -344,6 +345,7 @@ def main():
     parser.add_argument("--rope-base", type=int, default=10000)
     parser.add_argument("--n-head", type=int, default=24)
     parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--weight-decay", type=float, default=0.1)
     parser.add_argument("--reasoning", type=str, default="")
     args = parser.parse_args()
 
@@ -359,6 +361,7 @@ def main():
         rope_base=args.rope_base,
         n_head=args.n_head,
         batch_size=args.batch_size,
+        weight_decay=args.weight_decay,
         reasoning=args.reasoning,
     )
 
