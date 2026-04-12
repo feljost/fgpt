@@ -119,6 +119,16 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 | 18 | `exp-018-batch-larger` | effective batch 1M tokens | `accumulation_steps=16` (~1M tokens/update) | ⏳ todo |
 | 19 | `exp-019-adamw-beta2-099` | slower grad² EMA in AdamW | `betas=(0.9, 0.99)` instead of `(0.9, 0.95)` | ⏳ todo |
 | 20 | `exp-020-rope-base-20k` | RoPE base freq 20k | `RotaryEmbedding(base=20000)` | ⏳ todo |
+| 21 | `exp-021-muon-lr-030` | Muon LR 0.030 (push higher) | `muon_lr=0.030` — extend sweep past 0.025 | ⏳ todo |
+| 22 | `exp-022-adamw-lr-5e4` | AdamW LR 5e-4 (push higher) | `adamw_lr=5e-4` — extend sweep past 3e-4 | ⏳ todo |
+| 23 | `exp-023-sandwich-norm` | Output norm after each sublayer | Add `RMSNorm` after attn/MLP output before residual add (Peri-LN / OLMo 2 style) | ⏳ todo |
+| 24 | `exp-024-diff-attn` | Differential attention (ICLR 2025) | Split heads: `attn = softmax(Q·K1ᵀ)V1 - λ·softmax(Q·K2ᵀ)V2`, cancels attention noise | ⏳ todo |
+| 25 | `exp-025-sliding-window-alt` | Sliding window on even layers (Gemma 2) | Even-indexed blocks use local attention (window=512), odd use full | ⏳ todo |
+| 26 | `exp-026-attn-entropy-loss` | Attention entropy aux loss | Add `0.01 * max(0, threshold - attn_entropy)` to prevent head collapse (Apple ML) | ⏳ todo |
+| 27 | `exp-027-rope-base-5k` | RoPE base freq 5k (lower) | `RotaryEmbedding(base=5000)` — bracket lower end | ⏳ todo |
+| 28 | `exp-028-gqa-8kv` | Grouped Query Attention (8 KV heads) | `n_kv_heads=8`, 24 query heads — reduce KV size, same Q params | ⏳ todo |
+| 29 | `exp-029-muon-nesterov` | Muon with Nesterov momentum | Enable Nesterov in Muon optimizer (`nesterov=True`) | ⏳ todo |
+| 30 | `exp-030-pre-post-norm` | Pre+Post norm (DeepNorm style) | Scale residual by `α` before add; helps very deep networks (Microsoft 2022) | ⏳ todo |
 
 ---
 
