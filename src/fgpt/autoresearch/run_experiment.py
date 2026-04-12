@@ -263,9 +263,7 @@ def run_experiment(
         f"| Accum steps | {accumulation_steps} |\n"
         f"| Min LR ratio | {min_lr_ratio} |\n\n"
         f"## Reasoning\n\n"
-        f"{reasoning if reasoning else '_No reasoning provided._'}\n\n"
-        f"## Changes from Baseline\n\n"
-        f"_Fill in: what was changed vs exp-000-baseline_\n"
+        f"{reasoning if reasoning else '_No reasoning provided._'}\n"
     )
     print(f"Notes written to {notes_path}")
 
@@ -284,8 +282,12 @@ def run_experiment(
 
     try:
         branch = _git(["rev-parse", "--abbrev-ref", "HEAD"])
-        # Commit updated AUTORESEARCH.md (notes file already written above)
-        _git(["add", str(AUTORESEARCH_MD), str(NOTES_DIR / f"{tag}.md")])
+        # Commit notes, results.jsonl, and AUTORESEARCH.md together
+        _git(["add",
+              str(AUTORESEARCH_MD),
+              str(NOTES_DIR / f"{tag}.md"),
+              str(RESULTS_FILE),
+        ])
         _git(["commit", "-m", f"results: {tag} | val_loss={final_val_loss:.4f}"])
         _git(["push", "origin", branch])
         _git(["push", "origin", tag])

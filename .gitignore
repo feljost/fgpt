@@ -208,3 +208,14 @@ __marimo__/
 
 # data
 edu_fineweb*/
+
+# checkpoints / weights (large binaries)
+checkpoints/
+*.pth
+
+# training logs (tqdm output)
+logs/
+experiments/*.log
+
+# large experiment binaries — track notes, results, plots but not val batch tensor
+experiments/fixed_val_batches.pt
