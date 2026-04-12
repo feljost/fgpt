@@ -100,14 +100,25 @@ Experiments are ordered by expected impact and ease. After each run, update the 
 |---|-----|-------------|--------|--------|
 | 0 | `exp-000-baseline` | current config unchanged | None — establishes baseline | ✅ done |
 | 1 | `exp-001-warmup-longer` | 10% warmup instead of 5% | `warmup_frac=0.10` | ✅ done |
-| 2 | `exp-002-lr-adamw-3e4` | AdamW LR slightly higher | `adamw_lr=3e-4` | 🔄 running |
-| 3 | `exp-003-muon-lr-015` | Muon LR slightly lower | `muon_lr=0.015` | ⏳ todo |
-| 4 | `exp-004-rope-base-20k` | higher RoPE base freq | `RotaryEmbedding(base=20000)` | ⏳ todo |
-| 5 | `exp-005-qk-norm` | QK normalization | Add RMSNorm on Q and K | ⏳ todo |
-| 6 | `exp-006-z-loss` | auxiliary logit z-loss | Add `z_loss = 1e-4 * logits.exp().mean()` | ⏳ todo |
-| 7 | `exp-007-batch-larger` | effective batch 1M tokens | `accumulation_steps=24` | ⏳ todo |
-| 8 | `exp-008-grad-clip-03` | lower grad clip throughout | `norm_clip=0.3` always | ⏳ todo |
-| 9 | `exp-009-weight-decay-05` | half weight decay | `weight_decay=0.05` | ⏳ todo |
+| 2 | `exp-002-lr-adamw-3e4` | AdamW LR 3e-4 | `adamw_lr=3e-4` | 🔄 running |
+| 3 | `exp-003-muon-lr-025` | Muon LR higher (0.025) | `muon_lr=0.025` | ⏳ todo |
+| 4 | `exp-004-muon-lr-015` | Muon LR lower (0.015) | `muon_lr=0.015` | ⏳ todo |
+| 5 | `exp-005-rope-base-100k` | RoPE base freq 100k (LLaMA-3 style) | `RotaryEmbedding(base=100000)` | ⏳ todo |
+| 6 | `exp-006-qk-norm` | QK normalization | Add `RMSNorm` on Q and K before attention | ⏳ todo |
+| 7 | `exp-007-parallel-attn-mlp` | Parallel attention + MLP (PaLM style) | Compute attn and MLP in parallel, sum residuals | ⏳ todo |
+| 8 | `exp-008-geglu` | GeGLU instead of SwiGLU | Replace `F.silu` gate with `F.gelu` in MLP | ⏳ todo |
+| 9 | `exp-009-n-head-16` | Fewer, larger heads (head_dim 78) | `n_head=16` (same param count) | ⏳ todo |
+| 10 | `exp-010-logit-softcap` | Soft-cap logits (Gemma 2 style) | `logits = tanh(logits/30)*30` before CE loss | ⏳ todo |
+| 11 | `exp-011-z-loss` | auxiliary logit z-loss | Add `z_loss = 1e-4 * logits.logsumexp(-1).pow(2).mean()` | ⏳ todo |
+| 12 | `exp-012-min-lr-01` | Higher min LR ratio (0.1 vs 0.05) | `min_lr_ratio=0.1` — less aggressive decay | ⏳ todo |
+| 13 | `exp-013-plateau-10pct` | 10% plateau at peak LR | `plateau_frac=0.10` before cosine decay | ⏳ todo |
+| 14 | `exp-014-grad-clip-03` | lower grad clip throughout | `norm_clip=0.3` always (vs 0.5/1.0 schedule) | ⏳ todo |
+| 15 | `exp-015-weight-decay-005` | lower weight decay (0.05) | `weight_decay=0.05` in AdamW | ⏳ todo |
+| 16 | `exp-016-no-weight-tying` | untie lm_head from wte | Separate `lm_head` and `wte` weights | ⏳ todo |
+| 17 | `exp-017-deeper-narrower` | 40 layers, n_embd=1120 | `n_layer=40, n_embd=1120` (~same params) | ⏳ todo |
+| 18 | `exp-018-batch-larger` | effective batch 1M tokens | `accumulation_steps=16` (~1M tokens/update) | ⏳ todo |
+| 19 | `exp-019-adamw-beta2-099` | slower grad² EMA in AdamW | `betas=(0.9, 0.99)` instead of `(0.9, 0.95)` | ⏳ todo |
+| 20 | `exp-020-rope-base-20k` | RoPE base freq 20k | `RotaryEmbedding(base=20000)` | ⏳ todo |
 
 ---
 
