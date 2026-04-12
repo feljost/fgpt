@@ -18,11 +18,16 @@ class BaseDataLoader:
     It also uses mmap and a small in-memory cache to speed things up. More specifically,
     we have an active buffer of N open shards (mmap objects) that we randomly sample
     from.
+
+    Pass seed= for fully deterministic data ordering across runs (required for fair
+    experiment comparisons). When seed=None, a fresh random order is used each time.
     """
 
-    def __init__(self, B, T, split="train", buffer_size=4):
+    def __init__(self, B, T, split="train", buffer_size=4, seed=None):
         self.B = B
         self.T = T
+        # Use a private RNG instance so we don't touch global random state
+        self._rng = random.Random(seed)
         data_root = "edu_fineweb100B"
 
         all_files = sorted(os.listdir(data_root))
@@ -35,7 +40,7 @@ class BaseDataLoader:
         # needed to reset later if we run out of shards (-> trained for full epoch)
         self.all_shards_master = self.shards[:]
 
-        random.shuffle(self.shards)
+        self._rng.shuffle(self.shards)
 
         self.buffer_size = min(buffer_size, len(self.shards))
         self.open_shards = []
@@ -49,7 +54,7 @@ class BaseDataLoader:
         if not self.shards:
             # If we ran out of shards, reset the list
             self.shards = self.all_shards_master[:]
-            random.shuffle(self.shards)
+            self._rng.shuffle(self.shards)
 
         shard_path = self.shards.pop()  # get rid of used shard
 
@@ -69,7 +74,7 @@ class BaseDataLoader:
         B, T = self.B, self.T
 
         # randomly pick one of the currently open shards
-        shard_idx = random.randint(0, len(self.open_shards) - 1)
+        shard_idx = self._rng.randint(0, len(self.open_shards) - 1)
         shard_obj = self.open_shards[shard_idx]
 
         # sequentiall< read from that shard

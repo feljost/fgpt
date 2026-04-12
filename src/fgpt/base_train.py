@@ -1,5 +1,6 @@
 import time
 import math
+import random
 import torch
 from torch import optim
 import json
@@ -181,9 +182,21 @@ def train(
     sched_adamw,
     current_step,
     accumulation_steps,
+    max_time_seconds=None,
 ):
+    """Train the model.
+
+    Args:
+        max_time_seconds: If set, stop training after this many wall-clock seconds
+            instead of running to num_steps. The step count still determines the
+            LR schedule so the schedule is shared with a full run.
+
+    Returns:
+        final_val_loss: Val loss on the fixed val_batches at the end of training.
+    """
     print(f"Starting training for {num_steps} steps...")
     norm_val = 0
+    train_start = time.time()
 
     pbar = tqdm(
         range(current_step, num_steps),
@@ -192,6 +205,11 @@ def train(
         dynamic_ncols=True,
     )
     for i in pbar:
+        # Time-based early stop
+        if max_time_seconds is not None and (time.time() - train_start) >= max_time_seconds:
+            pbar.write(f"Reached time limit ({max_time_seconds}s), stopping at step {i}.")
+            break
+
         t0 = time.time()
         x, y = dataloader_train.next_batch()
         x, y = x.to("cuda"), y.to("cuda")
@@ -270,8 +288,15 @@ def train(
     print("Training complete.")
     torch.save(model.state_dict(), f"model_weights_{now_str}.pth")
 
+    final_val_loss = calculate_val_loss(model, val_batches)
+    return final_val_loss
+
 
 if __name__ == "__main__":
+    seed = 42
+    torch.manual_seed(seed)
+    random.seed(seed)
+
     model = FGPT(FGPTConfig())
     model.to("cuda")
     accumulation_steps = 12 # -> effective batch size of roughly 0.5m tokens
@@ -324,8 +349,8 @@ if __name__ == "__main__":
         # current_step = checkpoint["step"] + 1
 
     torch.set_float32_matmul_precision("medium")
-    dataloader_train = BaseDataLoader(B, T, split="train")
-    dataloader_val = BaseDataLoader(B, T, split="val")
+    dataloader_train = BaseDataLoader(B, T, split="train", seed=seed)
+    dataloader_val = BaseDataLoader(B, T, split="val", seed=seed + 1)
 
     # Preload fixed validation samples once
     val_batches = [dataloader_val.next_batch() for _ in range(64)]  # 64 mini-batches
