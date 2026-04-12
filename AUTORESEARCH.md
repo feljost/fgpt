@@ -27,6 +27,8 @@ Starting baseline: **parallel attn+MLP + adamw_lr=3e-4 + muon_lr=0.025** (val lo
 
 Each experiment runs on top of the current best compound config. If it wins, the change is permanently merged and becomes the new baseline for all subsequent experiments. If it loses, it is reverted. This greedy hill-climbing approach finds synergistic combinations that isolated tests miss.
 
+**Phase 2 runs for 60 minutes** (instead of 30) — ~600 optimizer steps rather than ~300, reducing noise and making margins more reliable.
+
 ---
 
 ## How It Works
@@ -196,7 +198,7 @@ The first two experiments (017, 018) re-validate the other phase 1 architectural
 
 ## Methodology Notes
 
-- **30 minutes from scratch** gives ~300 optimizer steps for the 600M model. Loss at this point is in the 5–7 range (still early). Comparisons are valid as long as they use identical seeds and data — we're measuring *relative improvement*, not absolute final loss.
+- **Phase 1: 30 minutes** (~300 optimizer steps). Phase 2: **60 minutes** (~600 optimizer steps) — longer runs reduce noise and give more reliable margins. Comparisons are valid as long as they use identical seeds and data — we're measuring *relative improvement*, not absolute final loss.
 - **Phase 1 (exp-000–016): isolated tests.** One variable at a time against the original baseline. Changes are always reverted after recording the result — no compounding.
 - **Phase 2 (exp-017+): compounding hill-climbing.** Each experiment runs on top of the current best compound config. If it wins, the change is permanently merged into the baseline. If it loses, it is reverted. The compound baseline val loss should be tracked manually after each winning merge.
 - **If signal is too noisy**, consider switching to an 85M model config for quick iteration (add it as `FGPTConfigSmall`), then validate winners on the full 600M model.
