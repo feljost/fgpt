@@ -32,12 +32,15 @@ class FGPTConfig:
     # Merged after exp-023: GQA n_kv_heads=8 → 4.0400 (-0.08 vs 4.1243 baseline).
     # Merged after exp-024: n_kv_heads=4 (2:1 ratio with n_head=8) → 3.9780 (-0.062 vs 4.0400).
     n_kv_heads: int = 4
+    # Alternating sliding-window attention. 0 = disabled (all layers full attention).
+    # When >0: even-indexed layers use a causal window of this size; odd layers use full attention.
+    sliding_window: int = 0
 
 
 class CausalSelfAttention(nn.Module):
     """Flashattn version of Causal Self-Attention module."""
 
-    def __init__(self, config):
+    def __init__(self, config, layer_idx: int = 0):
         super().__init__()
         assert config.n_embd % config.n_head == 0
 
@@ -58,6 +61,18 @@ class CausalSelfAttention(nn.Module):
 
         # rotary embedding object
         self.rotary_emb = RotaryEmbedding(dim=self.head_dim, theta=config.rope_base)
+
+        # Sliding window: even layers use local window, odd layers use full attention
+        sw = config.sliding_window if (layer_idx % 2 == 0) else 0
+        self.sliding_window = sw
+        if sw > 0:
+            T_max = config.block_size
+            rows = torch.arange(T_max).unsqueeze(1)
+            cols = torch.arange(T_max).unsqueeze(0)
+            attend = (cols <= rows) & (cols >= rows - sw + 1)
+            mask = torch.zeros(T_max, T_max)
+            mask[~attend] = float('-inf')
+            self.register_buffer('sw_mask', mask)
 
     def forward(self, x):
         B, T, C = x.size()
@@ -83,8 +98,12 @@ class CausalSelfAttention(nn.Module):
             k = k.repeat_interleave(self.n_groups, dim=1)  # (B, nh, T, hs)
             v = v.repeat_interleave(self.n_groups, dim=1)  # (B, nh, T, hs)
 
-        # PyTorch automatically selects the fastest kernel (FlashAttention V2, etc.)
-        y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, is_causal=True)
+        # Attention (sliding window for even layers if configured, else full causal)
+        if self.sliding_window > 0:
+            y = F.scaled_dot_product_attention(q, k, v, attn_mask=self.sw_mask[:T, :T], is_causal=False)
+        else:
+            # PyTorch automatically selects the fastest kernel (FlashAttention V2, etc.)
+            y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, is_causal=True)
 
         # Transpose back: (B, nh, T, hs) -> (B, T, nh, hs)
         y = y.transpose(1, 2).contiguous().view(B, T, C)
@@ -116,10 +135,10 @@ class Block(nn.Module):
     """PaLM-style parallel block: attn and MLP share one pre-norm, residuals summed together.
     Merged as permanent baseline after exp-007 (val_loss 5.1336, -0.39 vs sequential baseline).
     """
-    def __init__(self, config):
+    def __init__(self, config, layer_idx: int = 0):
         super().__init__()
         self.ln_1 = nn.RMSNorm(config.n_embd)
-        self.attn = CausalSelfAttention(config)
+        self.attn = CausalSelfAttention(config, layer_idx=layer_idx)
         self.mlp = MLP(config)
 
     def forward(self, x):
@@ -138,7 +157,7 @@ class FGPT(nn.Module):
                 # weight of token embeddings
                 wte=nn.Embedding(config.vocab_size, config.n_embd),
                 # wpe not needed as we are using RoPE
-                h=nn.ModuleList([Block(config) for _ in range(config.n_layer)]),
+                h=nn.ModuleList([Block(config, layer_idx=i) for i in range(config.n_layer)]),
                 # final normalization
                 ln_f=nn.RMSNorm(config.n_embd),
             )

@@ -185,21 +185,22 @@ The first two experiments (017, 018) re-validate the other phase 1 architectural
 | 5 | `exp-019-muon-lr-030` | 4.2114 | Muon LR 0.030 on compound baseline |
 | 6 | `exp-018-compound-geglu` | 4.2176 | GeGLU on parallel+n16 baseline |
 | 7 | `exp-021-sandwich-norm` | 4.2302 | Post-norm after sublayer (OLMo 2) |
-| 8 | `exp-022-diff-attn` | 4.5714 | Differential attention (ICLR 2025) |
-| 9 | `exp-007-parallel-attn-mlp` | 5.1336 | Parallel attn+MLP (PaLM style) |
-| 10 | `exp-009-n-head-16` | 5.3510 | 16 heads instead of 24 (larger head_dim) |
-| 11 | `exp-016-no-weight-tying` | 5.3643 | Untied lm_head and wte weights |
-| 12 | `exp-008-geglu` | 5.3875 | GeGLU instead of SwiGLU |
-| 13 | `exp-003-muon-lr-025` | 5.3898 | Muon LR 0.025 (higher) |
-| 14 | `exp-015-weight-decay-005` | 5.3914 | Weight decay 0.05 instead of 0.1 |
-| 15 | `exp-010-logit-softcap` | 5.3939 | Soft-cap logits at 30 (Gemma 2 style) |
-| 16 | `exp-005-rope-base-100k` | 5.4097 | RoPE base 100k (LLaMA-3 style) |
-| 17 | `exp-002-lr-adamw-3e4` | 5.4101 | AdamW LR 3e-4 vs 2e-4 |
-| 18 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
-| 19 | `exp-000-baseline` | 5.5235 | current config unchanged |
-| 20 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
-| 21 | `exp-006-qk-norm` | 5.6449 | QK normalization per-head |
-| 22 | `exp-011-z-loss` | 5.7478 | Auxiliary z-loss on logits (1e-4) |
+| 8 | `exp-025-sliding-window` | 4.2402 | Alternating local/global attention |
+| 9 | `exp-022-diff-attn` | 4.5714 | Differential attention (ICLR 2025) |
+| 10 | `exp-007-parallel-attn-mlp` | 5.1336 | Parallel attn+MLP (PaLM style) |
+| 11 | `exp-009-n-head-16` | 5.3510 | 16 heads instead of 24 (larger head_dim) |
+| 12 | `exp-016-no-weight-tying` | 5.3643 | Untied lm_head and wte weights |
+| 13 | `exp-008-geglu` | 5.3875 | GeGLU instead of SwiGLU |
+| 14 | `exp-003-muon-lr-025` | 5.3898 | Muon LR 0.025 (higher) |
+| 15 | `exp-015-weight-decay-005` | 5.3914 | Weight decay 0.05 instead of 0.1 |
+| 16 | `exp-010-logit-softcap` | 5.3939 | Soft-cap logits at 30 (Gemma 2 style) |
+| 17 | `exp-005-rope-base-100k` | 5.4097 | RoPE base 100k (LLaMA-3 style) |
+| 18 | `exp-002-lr-adamw-3e4` | 5.4101 | AdamW LR 3e-4 vs 2e-4 |
+| 19 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
+| 20 | `exp-000-baseline` | 5.5235 | current config unchanged |
+| 21 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
+| 22 | `exp-006-qk-norm` | 5.6449 | QK normalization per-head |
+| 23 | `exp-011-z-loss` | 5.7478 | Auxiliary z-loss on logits (1e-4) |
 
 *Auto-updated by `run_experiment.py` after each run — see `experiments/results.jsonl` for full data.*
 
