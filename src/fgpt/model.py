@@ -16,7 +16,7 @@ class FGPTConfig:
         50304  # GPT-2's vocab size 50257 --> set to power of 2 for faster cuda
     )
     n_layer: int = 32
-    n_head: int = 16  # merged after exp-017: parallel+n_head=16 → 4.2090 (-0.92 vs phase2 start)
+    n_head: int = 8  # merged after exp-024: n_head=8 → 3.9780 (-0.062 vs 4.0400 baseline)
     n_embd: int = (
         1248  # embedding dimension -> number of features in each token embedding
     )
@@ -29,8 +29,9 @@ class FGPTConfig:
     rope_base: int = 10000
     # Grouped Query Attention: number of KV heads. Must divide n_head evenly.
     # Set equal to n_head for standard MHA. Set to 1 for MQA.
-    # Merged after exp-023: GQA n_kv_heads=8 → 4.0400 (-0.08 vs compound baseline 4.1243).
-    n_kv_heads: int = 8
+    # Merged after exp-023: GQA n_kv_heads=8 → 4.0400 (-0.08 vs 4.1243 baseline).
+    # Merged after exp-024: n_kv_heads=4 (2:1 ratio with n_head=8) → 3.9780 (-0.062 vs 4.0400).
+    n_kv_heads: int = 4
 
 
 class CausalSelfAttention(nn.Module):
