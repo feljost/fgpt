@@ -144,6 +144,7 @@ def run_experiment(
     n_kv_heads: int = 4,
     batch_size: int = 64,
     weight_decay: float = 0.1,
+    adamw_beta2: float = 0.95,
     # Per-experiment reasoning (written into the notes file)
     reasoning: str = "",
 ):
@@ -181,7 +182,7 @@ def run_experiment(
 
     # ── Optimizers & Schedulers ───────────────────────────────────
     opt_muon, opt_adamw = configure_optimizers(
-        model, adamw_lr=start_lr_adamw, muon_lr=start_lr_muon, weight_decay=weight_decay
+        model, adamw_lr=start_lr_adamw, muon_lr=start_lr_muon, weight_decay=weight_decay, adamw_beta2=adamw_beta2
     )
 
     total_updates = math.ceil(total_schedule_steps / accumulation_steps)
@@ -352,6 +353,7 @@ def main():
     parser.add_argument("--n-kv-heads", type=int, default=4)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--weight-decay", type=float, default=0.1)
+    parser.add_argument("--adamw-beta2", type=float, default=0.95)
     parser.add_argument("--reasoning", type=str, default="")
     args = parser.parse_args()
 
@@ -371,6 +373,7 @@ def main():
         n_kv_heads=args.n_kv_heads,
         batch_size=args.batch_size,
         weight_decay=args.weight_decay,
+        adamw_beta2=args.adamw_beta2,
         reasoning=args.reasoning,
     )
 

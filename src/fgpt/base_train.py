@@ -105,6 +105,7 @@ def configure_optimizers(
     adamw_lr: float,
     muon_lr: float,
     weight_decay: float = 0.1,
+    adamw_beta2: float = 0.95,
 ):
     muon_params = []
     adamw_params = []
@@ -138,7 +139,7 @@ def configure_optimizers(
     opt_adamw = optim.AdamW(
         adamw_params,
         lr=adamw_lr,
-        betas=(0.9, 0.95),
+        betas=(0.9, adamw_beta2),
         eps=1e-8,
         weight_decay=weight_decay,
         fused=True,
