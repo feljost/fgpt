@@ -138,6 +138,8 @@ def run_experiment(
     warmup_frac: float = 0.05,
     plateau_frac: float = 0.0,
     rope_base: int = 10000,
+    n_layer: int = 32,
+    n_embd: int = 1248,
     n_head: int = 8,
     n_kv_heads: int = 4,
     batch_size: int = 64,
@@ -163,7 +165,7 @@ def run_experiment(
     # ── Model ────────────────────────────────────────────────────
     # Enable gradient checkpointing to fit in 80 GB (production ran on 96 GB GH200).
     # Recomputes each block during backward instead of storing all 32 layers.
-    cfg = FGPTConfig(gradient_checkpointing=True, rope_base=rope_base, n_head=n_head, n_kv_heads=n_kv_heads)
+    cfg = FGPTConfig(gradient_checkpointing=True, rope_base=rope_base, n_layer=n_layer, n_embd=n_embd, n_head=n_head, n_kv_heads=n_kv_heads)
     model = FGPT(cfg)
     model.to("cuda")
     torch.set_float32_matmul_precision("medium")
@@ -344,6 +346,8 @@ def main():
     parser.add_argument("--muon-lr", type=float, default=0.02)
     parser.add_argument("--warmup-frac", type=float, default=0.05)
     parser.add_argument("--rope-base", type=int, default=10000)
+    parser.add_argument("--n-layer", type=int, default=32)
+    parser.add_argument("--n-embd", type=int, default=1248)
     parser.add_argument("--n-head", type=int, default=8)
     parser.add_argument("--n-kv-heads", type=int, default=4)
     parser.add_argument("--batch-size", type=int, default=64)
@@ -361,6 +365,8 @@ def main():
         start_lr_muon=args.muon_lr,
         warmup_frac=args.warmup_frac,
         rope_base=args.rope_base,
+        n_layer=args.n_layer,
+        n_embd=args.n_embd,
         n_head=args.n_head,
         n_kv_heads=args.n_kv_heads,
         batch_size=args.batch_size,
