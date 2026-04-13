@@ -144,7 +144,7 @@ def run_experiment(
     n_kv_heads: int = 4,
     batch_size: int = 64,
     weight_decay: float = 0.1,
-    adamw_beta2: float = 0.95,
+    adamw_beta2: float = 0.99,
     # Per-experiment reasoning (written into the notes file)
     reasoning: str = "",
 ):
@@ -353,7 +353,7 @@ def main():
     parser.add_argument("--n-kv-heads", type=int, default=4)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--weight-decay", type=float, default=0.1)
-    parser.add_argument("--adamw-beta2", type=float, default=0.95)
+    parser.add_argument("--adamw-beta2", type=float, default=0.99)
     parser.add_argument("--reasoning", type=str, default="")
     args = parser.parse_args()
 
