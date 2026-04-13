@@ -174,6 +174,31 @@ The first two experiments (017, 018) re-validate the other phase 1 architectural
 
 ---
 
+### Phase 3 — Compounding experiments (exp-037+)
+
+**Phase 3 compound baseline** (all phase 1+2 wins merged):
+- Architecture: parallel attn+MLP, n_head=8, n_kv_heads=4 (GQA 2:1), head_dim=156
+- Optimizers: adamw_lr=5e-4, muon_lr=0.025, beta2=0.99, weight_decay=0.1
+- Schedule: warmup_frac=0.025, min_lr_ratio=0.05, rope_base=20000
+- **Phase 2 final val loss: 3.9634** (60-min reference)
+
+**Rules:** Same compounding hill-climbing as phase 2. Each experiment adds one change on top of the current best config. Win → merge permanently. Loss → revert.
+
+**Phase 3 runs for 2.5 hours** (~11k microsteps, ~1100 optimizer steps) — longer runs further reduce noise and reveal effects that only emerge with more training.
+
+| # | Tag | Description | Change | Rationale |
+|---|-----|-------------|--------|-----------|
+| 37 | `exp-037-phase3-baseline` | Phase 3 baseline (no changes) | None — establishes 2.5h reference | Must re-anchor before comparing; 2.5h gives a lower val loss than the 60-min phase 2 baseline |
+| 38 | `exp-038-n-head-4` | 4 attention heads (head_dim 312) | `n_head=4, n_kv_heads=2` | 24→16→8 won every step; test if trend continues to n_head=4 |
+| 39 | `exp-039-geglu` | GeGLU activation | Replace `F.silu` with `F.gelu` gate in MLP | Won in phase 1 (-0.14) but failed in early phase 2 (tested on old arch). Architecture is now very different — worth retesting |
+| 40 | `exp-040-muon-lr-030` | Muon LR 0.030 | `muon_lr=0.030` | Lost narrowly in phase 2 (Δ=0.002). 2.5h run gives cleaner signal — may flip |
+| 41 | `exp-041-weight-decay-005` | Lower weight decay (0.05) | `weight_decay=0.05` | Phase 1 showed 0.05 beat 0.1. Never tested on compound baseline |
+| 42 | `exp-042-adamw-lr-6e4` | AdamW LR 6e-4 | `adamw_lr=6e-4` | 3e-4 → 5e-4 both won. Continue upward sweep with beta2=0.99 smoothing |
+| 43 | `exp-043-rope-base-50k` | RoPE base 50k | `rope_base=50000` | 10k → 20k won narrowly. Test if trend continues above 20k |
+| 44 | `exp-044-mqa` | MQA: 1 shared KV head | `n_kv_heads=1` | GQA 16→8→4 KV heads won each step. Test the extreme — single shared KV head |
+
+---
+
 ## Results Summary
 
 | Rank | Tag | Val Loss | Description |
@@ -215,7 +240,7 @@ The first two experiments (017, 018) re-validate the other phase 1 architectural
 
 ## Methodology Notes
 
-- **Phase 1: 30 minutes** (~300 optimizer steps). Phase 2: **60 minutes** (~600 optimizer steps) — longer runs reduce noise and give more reliable margins. Comparisons are valid as long as they use identical seeds and data — we're measuring *relative improvement*, not absolute final loss.
+- **Phase 1: 30 minutes** (~300 optimizer steps). Phase 2: **60 minutes** (~600 optimizer steps). Phase 3: **2.5 hours** (~1100 optimizer steps) — longer runs further reduce noise and reveal effects that only emerge with more training. Comparisons are valid as long as they use identical seeds and data — we're measuring *relative improvement*, not absolute final loss.
 - **Phase 1 (exp-000–016): isolated tests.** One variable at a time against the original baseline. Changes are always reverted after recording the result — no compounding.
 - **Phase 2 (exp-017+): compounding hill-climbing.** Each experiment runs on top of the current best compound config. If it wins, the change is permanently merged into the baseline. If it loses, it is reverted. The compound baseline val loss should be tracked manually after each winning merge.
 - **If signal is too noisy**, consider switching to an 85M model config for quick iteration (add it as `FGPTConfigSmall`), then validate winners on the full 600M model.
