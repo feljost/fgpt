@@ -139,6 +139,7 @@ def run_experiment(
     plateau_frac: float = 0.0,
     rope_base: int = 10000,
     n_head: int = 16,
+    sandwich_norm: bool = False,
     batch_size: int = 64,
     weight_decay: float = 0.1,
     # Per-experiment reasoning (written into the notes file)
@@ -162,7 +163,7 @@ def run_experiment(
     # ── Model ────────────────────────────────────────────────────
     # Enable gradient checkpointing to fit in 80 GB (production ran on 96 GB GH200).
     # Recomputes each block during backward instead of storing all 32 layers.
-    cfg = FGPTConfig(gradient_checkpointing=True, rope_base=rope_base, n_head=n_head)
+    cfg = FGPTConfig(gradient_checkpointing=True, rope_base=rope_base, n_head=n_head, sandwich_norm=sandwich_norm)
     model = FGPT(cfg)
     model.to("cuda")
     torch.set_float32_matmul_precision("medium")
@@ -344,6 +345,7 @@ def main():
     parser.add_argument("--warmup-frac", type=float, default=0.05)
     parser.add_argument("--rope-base", type=int, default=10000)
     parser.add_argument("--n-head", type=int, default=16)
+    parser.add_argument("--sandwich-norm", action="store_true", default=False)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--weight-decay", type=float, default=0.1)
     parser.add_argument("--reasoning", type=str, default="")
@@ -360,6 +362,7 @@ def main():
         warmup_frac=args.warmup_frac,
         rope_base=args.rope_base,
         n_head=args.n_head,
+        sandwich_norm=args.sandwich_norm,
         batch_size=args.batch_size,
         weight_decay=args.weight_decay,
         reasoning=args.reasoning,
