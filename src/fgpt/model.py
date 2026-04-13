@@ -27,6 +27,9 @@ class FGPTConfig:
     # RoPE base frequency. Default 10000 matches GPT-NeoX / original RoPE paper.
     # LLaMA-3 uses 500000; common alternatives are 20000, 100000.
     rope_base: int = 10000
+    # Grouped Query Attention: number of KV heads. Must divide n_head evenly.
+    # Set equal to n_head for standard MHA (default). Set to 1 for MQA.
+    n_kv_heads: int = 16
 
 
 class CausalSelfAttention(nn.Module):
@@ -38,12 +41,15 @@ class CausalSelfAttention(nn.Module):
 
         # Key parameters
         self.n_head = config.n_head
+        self.n_kv_heads = config.n_kv_heads
         self.n_embd = config.n_embd
         self.head_dim = config.n_embd // config.n_head
+        assert config.n_head % config.n_kv_heads == 0
+        self.n_groups = config.n_head // config.n_kv_heads
 
-        # We combine Key, Query, and Value into a single linear layer for efficiency
-        # This replaces the internal mechanics of nn.MultiheadAttention
-        self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=False)
+        kv_dim = config.n_kv_heads * self.head_dim
+        # Q projects to n_embd; K+V each project to kv_dim (= n_embd when n_kv_heads == n_head)
+        self.c_attn = nn.Linear(config.n_embd, config.n_embd + 2 * kv_dim, bias=False)
 
         # Output projection
         self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
@@ -55,22 +61,25 @@ class CausalSelfAttention(nn.Module):
         B, T, C = x.size()
 
         # 1. Calculate Query, Key, Value
-        # Result of c_attn is (B, T, 3 * C)
+        kv_dim = self.n_kv_heads * self.head_dim
         qkv = self.c_attn(x)
 
-        # Split into q, k, v -> Each is (B, T, C)
-        q, k, v = qkv.split(self.n_embd, dim=2)
+        # Split into q (n_embd), k (kv_dim), v (kv_dim)
+        q, k, v = qkv.split([self.n_embd, kv_dim, kv_dim], dim=2)
 
-        # 2. Reshape for Multi-head attention
-        # We need to transform (B, T, C) -> (B, n_head, T, head_dim)
-        # The 'transpose' is physically moving memory, putting heads in the 2nd dimension
-        k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
-        q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
-        v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
+        # 2. Reshape for multi-head / grouped-query attention
+        q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)       # (B, nh, T, hs)
+        k = k.view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)   # (B, nkv, T, hs)
+        v = v.view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)   # (B, nkv, T, hs)
 
         # 3. Apply rotary embeddings to Q and K
         q = self.rotary_emb.rotate_queries_or_keys(q)
         k = self.rotary_emb.rotate_queries_or_keys(k)
+
+        # 4. Expand K/V heads for GQA (no-op when n_groups == 1, i.e. standard MHA)
+        if self.n_groups > 1:
+            k = k.repeat_interleave(self.n_groups, dim=1)  # (B, nh, T, hs)
+            v = v.repeat_interleave(self.n_groups, dim=1)  # (B, nh, T, hs)
 
         # PyTorch automatically selects the fastest kernel (FlashAttention V2, etc.)
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, is_causal=True)
