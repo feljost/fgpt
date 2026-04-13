@@ -27,8 +27,6 @@ class FGPTConfig:
     # RoPE base frequency. Default 10000 matches GPT-NeoX / original RoPE paper.
     # LLaMA-3 uses 500000; common alternatives are 20000, 100000.
     rope_base: int = 10000
-    # OLMo 2-style sandwich norm: post-norm on sublayer output before residual add.
-    sandwich_norm: bool = False
 
 
 class CausalSelfAttention(nn.Module):
@@ -113,14 +111,10 @@ class Block(nn.Module):
         self.ln_1 = nn.RMSNorm(config.n_embd)
         self.attn = CausalSelfAttention(config)
         self.mlp = MLP(config)
-        self.ln_out = nn.RMSNorm(config.n_embd) if config.sandwich_norm else None
 
     def forward(self, x):
         normed = self.ln_1(x)
-        out = self.attn(normed) + self.mlp(normed)
-        if self.ln_out is not None:
-            out = self.ln_out(out)
-        x = x + out
+        x = x + self.attn(normed) + self.mlp(normed)
         return x
 
 
