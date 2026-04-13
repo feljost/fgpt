@@ -28,8 +28,9 @@ class FGPTConfig:
     # LLaMA-3 uses 500000; common alternatives are 20000, 100000.
     rope_base: int = 10000
     # Grouped Query Attention: number of KV heads. Must divide n_head evenly.
-    # Set equal to n_head for standard MHA (default). Set to 1 for MQA.
-    n_kv_heads: int = 16
+    # Set equal to n_head for standard MHA. Set to 1 for MQA.
+    # Merged after exp-023: GQA n_kv_heads=8 → 4.0400 (-0.08 vs compound baseline 4.1243).
+    n_kv_heads: int = 8
 
 
 class CausalSelfAttention(nn.Module):
