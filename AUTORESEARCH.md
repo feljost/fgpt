@@ -178,33 +178,34 @@ The first two experiments (017, 018) re-validate the other phase 1 architectural
 
 | Rank | Tag | Val Loss | Description |
 |------|-----|----------|-------------|
-| 1 | `exp-029-warmup-2pct` | 3.9667 | 2.5% warmup (shorter) |
-| 2 | `exp-028-adamw-beta2-099` | 3.9751 | Slower grad² EMA in AdamW (beta2=0.99) |
-| 3 | `exp-024-n-head-8` | 3.9780 | 8 attention heads (head_dim 156) |
-| 4 | `exp-023-gqa-8kv` | 4.0400 | GQA: 8 KV heads (halved) |
-| 5 | `exp-026-deeper-narrower` | 4.1115 | 40 layers, n_embd=1120 (~same params) |
-| 6 | `exp-020-adamw-lr-5e4` | 4.1243 | AdamW LR 5e-4 on compound baseline |
-| 7 | `exp-017-compound-n-head-16` | 4.2090 | n_head=16 on parallel baseline |
-| 8 | `exp-019-muon-lr-030` | 4.2114 | Muon LR 0.030 on compound baseline |
-| 9 | `exp-018-compound-geglu` | 4.2176 | GeGLU on parallel+n16 baseline |
-| 10 | `exp-021-sandwich-norm` | 4.2302 | Post-norm after sublayer (OLMo 2) |
-| 11 | `exp-025-sliding-window` | 4.2402 | Alternating local/global attention |
-| 12 | `exp-022-diff-attn` | 4.5714 | Differential attention (ICLR 2025) |
-| 13 | `exp-030-batch-larger` | 4.6031 | Effective batch ~1M tokens (accum=16) |
-| 14 | `exp-007-parallel-attn-mlp` | 5.1336 | Parallel attn+MLP (PaLM style) |
-| 15 | `exp-009-n-head-16` | 5.3510 | 16 heads instead of 24 (larger head_dim) |
-| 16 | `exp-016-no-weight-tying` | 5.3643 | Untied lm_head and wte weights |
-| 17 | `exp-008-geglu` | 5.3875 | GeGLU instead of SwiGLU |
-| 18 | `exp-003-muon-lr-025` | 5.3898 | Muon LR 0.025 (higher) |
-| 19 | `exp-015-weight-decay-005` | 5.3914 | Weight decay 0.05 instead of 0.1 |
-| 20 | `exp-010-logit-softcap` | 5.3939 | Soft-cap logits at 30 (Gemma 2 style) |
-| 21 | `exp-005-rope-base-100k` | 5.4097 | RoPE base 100k (LLaMA-3 style) |
-| 22 | `exp-002-lr-adamw-3e4` | 5.4101 | AdamW LR 3e-4 vs 2e-4 |
-| 23 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
-| 24 | `exp-000-baseline` | 5.5235 | current config unchanged |
-| 25 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
-| 26 | `exp-006-qk-norm` | 5.6449 | QK normalization per-head |
-| 27 | `exp-011-z-loss` | 5.7478 | Auxiliary z-loss on logits (1e-4) |
+| 1 | `exp-031-rope-base-20k` | 3.9634 | RoPE base freq 20k |
+| 2 | `exp-029-warmup-2pct` | 3.9667 | 2.5% warmup (shorter) |
+| 3 | `exp-028-adamw-beta2-099` | 3.9751 | Slower grad² EMA in AdamW (beta2=0.99) |
+| 4 | `exp-024-n-head-8` | 3.9780 | 8 attention heads (head_dim 156) |
+| 5 | `exp-023-gqa-8kv` | 4.0400 | GQA: 8 KV heads (halved) |
+| 6 | `exp-026-deeper-narrower` | 4.1115 | 40 layers, n_embd=1120 (~same params) |
+| 7 | `exp-020-adamw-lr-5e4` | 4.1243 | AdamW LR 5e-4 on compound baseline |
+| 8 | `exp-017-compound-n-head-16` | 4.2090 | n_head=16 on parallel baseline |
+| 9 | `exp-019-muon-lr-030` | 4.2114 | Muon LR 0.030 on compound baseline |
+| 10 | `exp-018-compound-geglu` | 4.2176 | GeGLU on parallel+n16 baseline |
+| 11 | `exp-021-sandwich-norm` | 4.2302 | Post-norm after sublayer (OLMo 2) |
+| 12 | `exp-025-sliding-window` | 4.2402 | Alternating local/global attention |
+| 13 | `exp-022-diff-attn` | 4.5714 | Differential attention (ICLR 2025) |
+| 14 | `exp-030-batch-larger` | 4.6031 | Effective batch ~1M tokens (accum=16) |
+| 15 | `exp-007-parallel-attn-mlp` | 5.1336 | Parallel attn+MLP (PaLM style) |
+| 16 | `exp-009-n-head-16` | 5.3510 | 16 heads instead of 24 (larger head_dim) |
+| 17 | `exp-016-no-weight-tying` | 5.3643 | Untied lm_head and wte weights |
+| 18 | `exp-008-geglu` | 5.3875 | GeGLU instead of SwiGLU |
+| 19 | `exp-003-muon-lr-025` | 5.3898 | Muon LR 0.025 (higher) |
+| 20 | `exp-015-weight-decay-005` | 5.3914 | Weight decay 0.05 instead of 0.1 |
+| 21 | `exp-010-logit-softcap` | 5.3939 | Soft-cap logits at 30 (Gemma 2 style) |
+| 22 | `exp-005-rope-base-100k` | 5.4097 | RoPE base 100k (LLaMA-3 style) |
+| 23 | `exp-002-lr-adamw-3e4` | 5.4101 | AdamW LR 3e-4 vs 2e-4 |
+| 24 | `exp-004-muon-lr-015` | 5.4718 | Muon LR 0.015 (lower) |
+| 25 | `exp-000-baseline` | 5.5235 | current config unchanged |
+| 26 | `exp-001-warmup-longer` | 5.5596 | 10% warmup instead of 5% |
+| 27 | `exp-006-qk-norm` | 5.6449 | QK normalization per-head |
+| 28 | `exp-011-z-loss` | 5.7478 | Auxiliary z-loss on logits (1e-4) |
 
 *Auto-updated by `run_experiment.py` after each run — see `experiments/results.jsonl` for full data.*
 
