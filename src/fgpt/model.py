@@ -110,7 +110,7 @@ class MLP(nn.Module):
     def forward(self, x):
         w13_out = self.w13(x)
         w1_out, w3_out = w13_out.split(self.hidden_dim, dim=-1)
-        return self.w2(F.gelu(w1_out) * w3_out)
+        return self.w2(F.silu(w1_out) * w3_out)
 
 
 class Block(nn.Module):
