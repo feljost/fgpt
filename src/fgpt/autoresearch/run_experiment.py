@@ -140,7 +140,6 @@ def run_experiment(
     rope_base: int = 10000,
     n_head: int = 8,
     n_kv_heads: int = 4,
-    sliding_window: int = 0,
     batch_size: int = 64,
     weight_decay: float = 0.1,
     # Per-experiment reasoning (written into the notes file)
@@ -164,7 +163,7 @@ def run_experiment(
     # ── Model ────────────────────────────────────────────────────
     # Enable gradient checkpointing to fit in 80 GB (production ran on 96 GB GH200).
     # Recomputes each block during backward instead of storing all 32 layers.
-    cfg = FGPTConfig(gradient_checkpointing=True, rope_base=rope_base, n_head=n_head, n_kv_heads=n_kv_heads, sliding_window=sliding_window)
+    cfg = FGPTConfig(gradient_checkpointing=True, rope_base=rope_base, n_head=n_head, n_kv_heads=n_kv_heads)
     model = FGPT(cfg)
     model.to("cuda")
     torch.set_float32_matmul_precision("medium")
@@ -347,7 +346,6 @@ def main():
     parser.add_argument("--rope-base", type=int, default=10000)
     parser.add_argument("--n-head", type=int, default=8)
     parser.add_argument("--n-kv-heads", type=int, default=4)
-    parser.add_argument("--sliding-window", type=int, default=0)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--weight-decay", type=float, default=0.1)
     parser.add_argument("--reasoning", type=str, default="")
@@ -365,7 +363,6 @@ def main():
         rope_base=args.rope_base,
         n_head=args.n_head,
         n_kv_heads=args.n_kv_heads,
-        sliding_window=args.sliding_window,
         batch_size=args.batch_size,
         weight_decay=args.weight_decay,
         reasoning=args.reasoning,
