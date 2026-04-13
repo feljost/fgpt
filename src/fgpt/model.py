@@ -26,7 +26,8 @@ class FGPTConfig:
     gradient_checkpointing: bool = False
     # RoPE base frequency. Default 10000 matches GPT-NeoX / original RoPE paper.
     # LLaMA-3 uses 500000; common alternatives are 20000, 100000.
-    rope_base: int = 10000
+    # Merged after exp-031: rope_base=20000 → 3.9634 (-0.003 vs 3.9667 baseline).
+    rope_base: int = 20000
     # Grouped Query Attention: number of KV heads. Must divide n_head evenly.
     # Set equal to n_head for standard MHA. Set to 1 for MQA.
     # Merged after exp-023: GQA n_kv_heads=8 → 4.0400 (-0.08 vs 4.1243 baseline).
