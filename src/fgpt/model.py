@@ -27,6 +27,9 @@ class FGPTConfig:
     # RoPE base frequency. Default 10000 matches GPT-NeoX / original RoPE paper.
     # LLaMA-3 uses 500000; common alternatives are 20000, 100000.
     rope_base: int = 10000
+    # Differential attention (ICLR 2025): split Q/K heads in two, subtract second
+    # attention map from first. Cancels attention noise.
+    diff_attn: bool = False
 
 
 class CausalSelfAttention(nn.Module):
@@ -50,6 +53,11 @@ class CausalSelfAttention(nn.Module):
 
         # rotary embedding object
         self.rotary_emb = RotaryEmbedding(dim=self.head_dim, theta=config.rope_base)
+        # Differential attention: second Q/K pair (separate projection, same head_dim)
+        self.diff_attn = config.diff_attn
+        if config.diff_attn:
+            self.c_attn2 = nn.Linear(config.n_embd, 2 * config.n_embd, bias=False)
+            self.lambda_param = nn.Parameter(torch.ones(self.n_head) * 0.8)
 
     def forward(self, x):
         B, T, C = x.size()
@@ -69,12 +77,24 @@ class CausalSelfAttention(nn.Module):
         v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
 
         # 3. Apply rotary embeddings to Q and K
-        # rotary_embedding_torch expects shape (B, n_head, T, head_dim)
         q = self.rotary_emb.rotate_queries_or_keys(q)
         k = self.rotary_emb.rotate_queries_or_keys(k)
 
-        # PyTorch automatically selects the fastest kernel (FlashAttention V2, etc.)
-        y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, is_causal=True)
+        if self.diff_attn:
+            # Second Q/K pair via separate projection
+            q2k2 = self.c_attn2(x)
+            q2, k2 = q2k2.split(self.n_embd, dim=2)
+            q2 = q2.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
+            k2 = k2.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
+            q2 = self.rotary_emb.rotate_queries_or_keys(q2)
+            k2 = self.rotary_emb.rotate_queries_or_keys(k2)
+            y1 = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+            y2 = F.scaled_dot_product_attention(q2, k2, v, is_causal=True)
+            lam = self.lambda_param.sigmoid().view(1, -1, 1, 1)
+            y = y1 - lam * y2
+        else:
+            # PyTorch automatically selects the fastest kernel (FlashAttention V2, etc.)
+            y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, is_causal=True)
 
         # Transpose back: (B, nh, T, hs) -> (B, T, nh, hs)
         y = y.transpose(1, 2).contiguous().view(B, T, C)
