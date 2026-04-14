@@ -66,7 +66,7 @@ Same hill-climbing approach. **Runs for 2.5 hours** (~11k microsteps, ~1100 opti
 | min_lr_ratio | 0.05 | — |
 | accumulation_steps | 8 | — |
 
-**Current best val loss (2.5h run): 3.4038** (exp-044)
+**Current best val loss (2.5h run): 3.4038** (exp-044) — queue empty, no active experiments
 
 ---
 
@@ -222,8 +222,8 @@ Output: `experiments/plots/progress.png`
 | 42 | `exp-042-adamw-lr-6e4` | AdamW LR 6e-4 | ✅ done — **merged** (-0.008) |
 | 43 | `exp-043-rope-base-50k` | RoPE base 50k | ✅ done — **merged** (-0.011) |
 | 44 | `exp-044-mqa` | MQA: n_kv_heads=1 | ✅ done — **merged** (-0.047) |
-| 45 | `exp-045-logit-softcap` | Logit soft-cap at 30 | 🔄 running |
-| 46 | `exp-046-n-layer-36` | n_layer=36 (deeper model) | ✅ done |
+| 45 | `exp-045-logit-softcap` | Logit soft-cap at 30 | ✅ done — lost (+0.006) |
+| 46 | `exp-046-n-layer-36` | n_layer=36 (deeper model) | ✅ done — lost (+0.048) |
 
 ---
 
@@ -281,7 +281,7 @@ Output: `experiments/plots/progress.png`
 - **LR schedule scales to run duration** — warmup and cosine decay are expressed as fractions of total steps, so every run sees a full warmup→peak→decay cycle regardless of length.
 - **Code changes must be reverted** if an experiment loses. If it wins, the change is kept and becomes part of the permanent baseline.
 - **Git tags** mark each experiment's code state. Use `git show <tag>` to see exactly what changed.
-- **Things definitively ruled out:** GeGLU (tested 3× across phases), QK-norm, z-loss, sandwich/post-norm, differential attention, sliding window attention, larger batch, full LR decay to 0.
+- **Things definitively ruled out:** GeGLU (tested 3× across phases), QK-norm, z-loss, sandwich/post-norm, differential attention, sliding window attention, larger batch, full LR decay to 0, logit soft-cap (lost in phase 3 despite winning in phase 1), n_layer=36 (worse than 32 at 2.5h).
 
 ---
 
