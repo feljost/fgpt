@@ -190,6 +190,7 @@ python src/fgpt/inference.py
 - ~Muon Optimizer: Improve training speed~
 - ~Scaling: Train on >14B tokens (Chinchilla optimality)~
 - ~Implement modern stack: RoPE, SwiGLU and RMSNorm~
+- Implement findings from autoresearch branch
 - SFT: Better selection of SFT datasets and instruction finetuning. (ongoing)
 - Chat-based evaluation: add instruction data on multiple choice questions & check hellaswag after instruction finetuning.
 - Deployment: HF Spaces demo
