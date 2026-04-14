@@ -132,7 +132,7 @@ def run_experiment(
     seed: int = 42,
     # Training hyperparams — override these per experiment
     accumulation_steps: int = 8,  # 64*1024*8 = 524,288 tokens ≈ original 491,520
-    start_lr_adamw: float = 2e-4,
+    start_lr_adamw: float = 6e-4,  # merged after exp-042: adamw_lr=6e-4 → 3.4425 (-0.008 vs 3.4504 baseline)
     start_lr_muon: float = 0.02,
     min_lr_ratio: float = 0.05,
     warmup_frac: float = 0.025,  # merged after exp-029: 2.5% warmup → 3.9667 (-0.008 vs 3.9751)
@@ -343,7 +343,7 @@ def main():
     parser.add_argument("--duration-minutes", type=float, default=30.0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--accumulation-steps", type=int, default=8)
-    parser.add_argument("--adamw-lr", type=float, default=2e-4)
+    parser.add_argument("--adamw-lr", type=float, default=6e-4)
     parser.add_argument("--muon-lr", type=float, default=0.02)
     parser.add_argument("--warmup-frac", type=float, default=0.025)
     parser.add_argument("--rope-base", type=int, default=20000)
