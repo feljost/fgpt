@@ -137,7 +137,7 @@ def run_experiment(
     min_lr_ratio: float = 0.05,
     warmup_frac: float = 0.025,  # merged after exp-029: 2.5% warmup → 3.9667 (-0.008 vs 3.9751)
     plateau_frac: float = 0.0,
-    rope_base: int = 20000,  # merged after exp-031: rope_base=20k → 3.9634 (-0.003 vs 3.9667)
+    rope_base: int = 50000,  # merged after exp-043: rope_base=50k → 3.4391 (-0.011 vs 3.4504 baseline)
     n_layer: int = 32,
     n_embd: int = 1248,
     n_head: int = 8,
@@ -346,7 +346,7 @@ def main():
     parser.add_argument("--adamw-lr", type=float, default=6e-4)
     parser.add_argument("--muon-lr", type=float, default=0.02)
     parser.add_argument("--warmup-frac", type=float, default=0.025)
-    parser.add_argument("--rope-base", type=int, default=20000)
+    parser.add_argument("--rope-base", type=int, default=50000)
     parser.add_argument("--n-layer", type=int, default=32)
     parser.add_argument("--n-embd", type=int, default=1248)
     parser.add_argument("--n-head", type=int, default=8)
