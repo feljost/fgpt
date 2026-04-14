@@ -33,7 +33,8 @@ class FGPTConfig:
     # Set equal to n_head for standard MHA. Set to 1 for MQA.
     # Merged after exp-023: GQA n_kv_heads=8 → 4.0400 (-0.08 vs 4.1243 baseline).
     # Merged after exp-024: n_kv_heads=4 (2:1 ratio with n_head=8) → 3.9780 (-0.062 vs 4.0400).
-    n_kv_heads: int = 4
+    # Merged after exp-044: MQA n_kv_heads=1 → 3.4038 (-0.047 vs 3.4504 baseline).
+    n_kv_heads: int = 1
 
 
 class CausalSelfAttention(nn.Module):
@@ -184,6 +185,8 @@ class FGPT(nn.Module):
 
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x)
+        # Logit soft-cap (Gemini-style): tanh cap at ±30 stabilizes large logit magnitudes
+        logits = 30.0 * torch.tanh(logits / 30.0)
         loss = None
         if targets is not None:
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))

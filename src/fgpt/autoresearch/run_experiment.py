@@ -141,7 +141,7 @@ def run_experiment(
     n_layer: int = 32,
     n_embd: int = 1248,
     n_head: int = 8,
-    n_kv_heads: int = 4,
+    n_kv_heads: int = 1,  # merged after exp-044: MQA → 3.4038 (-0.047 vs 3.4504 baseline)
     batch_size: int = 64,
     weight_decay: float = 0.1,
     adamw_beta2: float = 0.99,
@@ -350,7 +350,7 @@ def main():
     parser.add_argument("--n-layer", type=int, default=32)
     parser.add_argument("--n-embd", type=int, default=1248)
     parser.add_argument("--n-head", type=int, default=8)
-    parser.add_argument("--n-kv-heads", type=int, default=4)
+    parser.add_argument("--n-kv-heads", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--weight-decay", type=float, default=0.1)
     parser.add_argument("--adamw-beta2", type=float, default=0.99)
