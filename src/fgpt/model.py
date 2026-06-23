@@ -2,9 +2,10 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from torch.utils.checkpoint import checkpoint as grad_checkpoint
 from rotary_embedding_torch import RotaryEmbedding
 
-B = 40  # batch size
+B = 24  # batch size (lowered from 40 to fit H100 80GB without OOM)
 T = 1024  # sequence length / time
 
 
@@ -15,10 +16,27 @@ class FGPTConfig:
         50304  # GPT-2's vocab size 50257 --> set to power of 2 for faster cuda
     )
     n_layer: int = 32
-    n_head: int = 24
+    n_head: int = 8  # merged after exp-024: n_head=8 → 3.9780 (-0.062 vs 4.0400 baseline)
     n_embd: int = (
         1248  # embedding dimension -> number of features in each token embedding
     )
+    # Recompute activations during backward instead of storing all 32 layers.
+    # Reduces activation memory from ~63 GB to ~2 GB at ~33% compute cost.
+    # Enable for autoresearch runs on 80 GB H100 (production used 96 GB GH200).
+    gradient_checkpointing: bool = False
+    # RoPE base frequency. Default 10000 matches GPT-NeoX / original RoPE paper.
+    # LLaMA-3 uses 500000; common alternatives are 20000, 100000.
+    # Merged after exp-031: rope_base=20000 → 3.9634 (-0.003 vs 3.9667 baseline).
+    # Merged after exp-043: rope_base=50000 → 3.4391 (-0.011 vs 3.4504 baseline).
+    rope_base: int = 50000
+    # Grouped Query Attention: number of KV heads. Must divide n_head evenly.
+    # Set equal to n_head for standard MHA. Set to 1 for MQA.
+    # Merged after exp-023: GQA n_kv_heads=8 → 4.0400 (-0.08 vs 4.1243 baseline).
+    # Merged after exp-024: n_kv_heads=4 (2:1 ratio with n_head=8) → 3.9780 (-0.062 vs 4.0400).
+    # exp-044 pushed this to 1 (MQA) for -0.047 more, but that's an extreme ratio;
+    # using 2 (4:1 ratio, same as Llama-3) keeps most of the win with a more
+    # standard GQA setting.
+    n_kv_heads: int = 2
 
 
 class CausalSelfAttention(nn.Module):
@@ -30,40 +48,45 @@ class CausalSelfAttention(nn.Module):
 
         # Key parameters
         self.n_head = config.n_head
+        self.n_kv_heads = config.n_kv_heads
         self.n_embd = config.n_embd
         self.head_dim = config.n_embd // config.n_head
+        assert config.n_head % config.n_kv_heads == 0
+        self.n_groups = config.n_head // config.n_kv_heads
 
-        # We combine Key, Query, and Value into a single linear layer for efficiency
-        # This replaces the internal mechanics of nn.MultiheadAttention
-        self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=False)
+        kv_dim = config.n_kv_heads * self.head_dim
+        # Q projects to n_embd; K+V each project to kv_dim (= n_embd when n_kv_heads == n_head)
+        self.c_attn = nn.Linear(config.n_embd, config.n_embd + 2 * kv_dim, bias=False)
 
         # Output projection
         self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
 
         # rotary embedding object
-        self.rotary_emb = RotaryEmbedding(dim = self.head_dim)
+        self.rotary_emb = RotaryEmbedding(dim=self.head_dim, theta=config.rope_base)
 
     def forward(self, x):
         B, T, C = x.size()
 
         # 1. Calculate Query, Key, Value
-        # Result of c_attn is (B, T, 3 * C)
+        kv_dim = self.n_kv_heads * self.head_dim
         qkv = self.c_attn(x)
 
-        # Split into q, k, v -> Each is (B, T, C)
-        q, k, v = qkv.split(self.n_embd, dim=2)
+        # Split into q (n_embd), k (kv_dim), v (kv_dim)
+        q, k, v = qkv.split([self.n_embd, kv_dim, kv_dim], dim=2)
 
-        # 2. Reshape for Multi-head attention
-        # We need to transform (B, T, C) -> (B, n_head, T, head_dim)
-        # The 'transpose' is physically moving memory, putting heads in the 2nd dimension
-        k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
-        q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
-        v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)  # (B, nh, T, hs)
+        # 2. Reshape for multi-head / grouped-query attention
+        q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)       # (B, nh, T, hs)
+        k = k.view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)   # (B, nkv, T, hs)
+        v = v.view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)   # (B, nkv, T, hs)
 
         # 3. Apply rotary embeddings to Q and K
-        # rotary_embedding_torch expects shape (B, n_head, T, head_dim)
         q = self.rotary_emb.rotate_queries_or_keys(q)
         k = self.rotary_emb.rotate_queries_or_keys(k)
+
+        # 4. Expand K/V heads for GQA (no-op when n_groups == 1, i.e. standard MHA)
+        if self.n_groups > 1:
+            k = k.repeat_interleave(self.n_groups, dim=1)  # (B, nh, T, hs)
+            v = v.repeat_interleave(self.n_groups, dim=1)  # (B, nh, T, hs)
 
         # PyTorch automatically selects the fastest kernel (FlashAttention V2, etc.)
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, is_causal=True)
@@ -95,18 +118,19 @@ class MLP(nn.Module):
 
 
 class Block(nn.Module):
+    """PaLM-style parallel block: attn and MLP share one pre-norm, residuals summed together.
+    Merged as permanent baseline after exp-007 (val_loss 5.1336, -0.39 vs sequential baseline).
+    """
+
     def __init__(self, config):
         super().__init__()
         self.ln_1 = nn.RMSNorm(config.n_embd)
         self.attn = CausalSelfAttention(config)
-        self.ln_2 = nn.RMSNorm(config.n_embd)
         self.mlp = MLP(config)
 
     def forward(self, x):
-        # first we go through layer norm, that is fed into attention
-        # then we go through layer norm again, that is fed into MLP
-        x = x + self.attn(self.ln_1(x))
-        x = x + self.mlp(self.ln_2(x))
+        normed = self.ln_1(x)
+        x = x + self.attn(normed) + self.mlp(normed)
         return x
 
 
@@ -157,7 +181,10 @@ class FGPT(nn.Module):
         x = self.transformer.wte(idx)  # (B, T, n_embd) token embeddings
 
         for block in self.transformer.h:
-            x = block(x)
+            if self.config.gradient_checkpointing and self.training:
+                x = grad_checkpoint(block, x, use_reentrant=False)
+            else:
+                x = block(x)
 
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x)

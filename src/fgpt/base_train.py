@@ -1,5 +1,10 @@
+import os
+
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 import time
 import math
+import random
 import torch
 from torch import optim
 import json
@@ -8,9 +13,9 @@ from pathlib import Path
 from tqdm import tqdm
 from functools import partial
 
-from model import FGPT
-from model import FGPTConfig
-from model import B, T
+from fgpt.model import FGPT
+from fgpt.model import FGPTConfig
+from fgpt.model import B, T
 from fgpt.data.loaders import BaseDataLoader
 from fgpt.inference import model_inference
 from fgpt.eval.hellaswag_base_eval import iterate_examples
@@ -36,6 +41,7 @@ def log_train_metrics(
     dataloader_val,
     val_batches,
     now_str=now_str,
+    disable_heavy_evals=False,
 ):
     pbar.write(
         f"Step: {step} | Loss: {loss:.4f} | norm {norm:.2f} | "
@@ -57,7 +63,7 @@ def log_train_metrics(
     if step % 512 == 0:
         metrics["val_loss"] = calculate_val_loss(model, val_batches)
 
-    if step % 25_000 == 0:
+    if not disable_heavy_evals and step % 25_000 == 0:
         metrics["hellaswag_acc"] = hellaswag_eval_base(model, pbar)
 
     if step % 12 == 0 or step % 25_000 == 0 or step % 256 == 0:
@@ -84,11 +90,17 @@ def calculate_val_loss(model, val_batches):
     losses = []
     with torch.no_grad():
         for x_val, y_val in val_batches:
-            x_val, y_val = x_val.to("cuda"), y_val.to("cuda")
+            x_val = x_val.to("cuda")
+            y_val = y_val.to("cuda")
             with torch.autocast("cuda", dtype=torch.bfloat16):
-                _, val_loss = model(x_val, y_val)
+                logits_val, val_loss = model(x_val, y_val)
             losses.append(val_loss.item())
+            del x_val, y_val, logits_val, val_loss  # free GPU tensors immediately
     model.train()
+    # Release cached allocator blocks so the training forward pass isn't starved.
+    # Without this, 64 val batches leave ~20 GB cached, causing OOM at the next
+    # training step when the logits buffer (3.84 GB) can't be allocated.
+    torch.cuda.empty_cache()
     return sum(losses) / len(losses)
 
 
@@ -96,6 +108,8 @@ def configure_optimizers(
     model,
     adamw_lr: float,
     muon_lr: float,
+    weight_decay: float = 0.1,
+    adamw_beta2: float = 0.99,  # merged after exp-028: beta2=0.99 → 3.9751 (-0.003 vs 3.9780)
 ):
     muon_params = []
     adamw_params = []
@@ -129,9 +143,9 @@ def configure_optimizers(
     opt_adamw = optim.AdamW(
         adamw_params,
         lr=adamw_lr,
-        betas=(0.9, 0.95),
+        betas=(0.9, adamw_beta2),
         eps=1e-8,
-        weight_decay=0.1,
+        weight_decay=weight_decay,
         fused=True,
     )
 
@@ -181,9 +195,24 @@ def train(
     sched_adamw,
     current_step,
     accumulation_steps,
+    max_time_seconds=None,
+    disable_heavy_evals=False,
 ):
+    """Train the model.
+
+    Args:
+        max_time_seconds: If set, stop training after this many wall-clock seconds
+            instead of running to num_steps.
+        disable_heavy_evals: Skip HellaSwag eval and sample generation. Use this
+            for short autoresearch runs where only val_loss matters and the heavy
+            evals would fragment GPU memory and waste time.
+
+    Returns:
+        final_val_loss: Val loss on the fixed val_batches at the end of training.
+    """
     print(f"Starting training for {num_steps} steps...")
     norm_val = 0
+    train_start = time.time()
 
     pbar = tqdm(
         range(current_step, num_steps),
@@ -192,6 +221,11 @@ def train(
         dynamic_ncols=True,
     )
     for i in pbar:
+        # Time-based early stop
+        if max_time_seconds is not None and (time.time() - train_start) >= max_time_seconds:
+            pbar.write(f"Reached time limit ({max_time_seconds}s), stopping at step {i}.")
+            break
+
         t0 = time.time()
         x, y = dataloader_train.next_batch()
         x, y = x.to("cuda"), y.to("cuda")
@@ -208,7 +242,7 @@ def train(
         if (i - current_step + 1) % accumulation_steps == 0:
             # clip grads before stepping
             # this schedule could be improved with a smoother transition
-            norm_clip = 0.5 if current_step < 350_000 else 1.0
+            norm_clip = 0.5 if i < 350_000 else 1.0
 
             norm = torch.nn.utils.clip_grad_norm_(model.parameters(), norm_clip)
             norm_val = float(norm)
@@ -224,6 +258,10 @@ def train(
             # Zero grad for BOTH
             opt_muon.zero_grad()
             opt_adamw.zero_grad()
+            # Muon's Newton-Schulz iteration leaves large temporary matrices
+            # (G.T @ G etc.) in the PyTorch cache. Release them immediately so
+            # the next accumulation cycle's forward pass can allocate freely.
+            torch.cuda.empty_cache()
 
         torch.cuda.synchronize()
         t1 = time.time()
@@ -246,9 +284,10 @@ def train(
             dataloader_val=dataloader_val,
             val_batches=val_batches,
             now_str=now_str,
+            disable_heavy_evals=disable_heavy_evals,
         )
 
-        if i % 2048 == 0:
+        if not disable_heavy_evals and i % 2048 == 0:
             log_sample_output(model, pbar, step=i, now_str=now_str)
 
         if i % 10_000 == 0 and i > 0:
@@ -270,15 +309,23 @@ def train(
     print("Training complete.")
     torch.save(model.state_dict(), f"model_weights_{now_str}.pth")
 
+    final_val_loss = calculate_val_loss(model, val_batches)
+    return final_val_loss
+
 
 if __name__ == "__main__":
+    seed = 42
+    torch.manual_seed(seed)
+    random.seed(seed)
+
     model = FGPT(FGPTConfig())
     model.to("cuda")
-    accumulation_steps = 12 # -> effective batch size of roughly 0.5m tokens
+    accumulation_steps = 20 # -> effective batch size of roughly 0.5m tokens (B=24, T=1024)
     current_step = 0
-    max_steps = 1_000_000 + 1
-    start_lr_adamw = 2e-4
-    start_lr_muon = 0.02
+    target_tokens = 40_000_000_000  # ~40B token training run, multi-day on this hardware
+    max_steps = math.ceil(target_tokens / (B * T)) + 1
+    start_lr_adamw = 6e-4
+    start_lr_muon = 0.025
     min_lr_ratio = 0.05
 
     # Optimizer Setup
@@ -288,7 +335,7 @@ if __name__ == "__main__":
 
     # Scheduler Logic (Applied to both)
     total_updates = math.ceil(max_steps / accumulation_steps)
-    warmup_steps = total_updates * 0.01
+    warmup_steps = total_updates * 0.025
     plateau_steps = 0
 
     # Create the lambdas for both optimizers
