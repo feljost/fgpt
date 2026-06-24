@@ -5,7 +5,7 @@ from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint as grad_checkpoint
 from rotary_embedding_torch import RotaryEmbedding
 
-B = 24  # batch size (lowered from 40 to fit H100 80GB without OOM)
+B = 32  # batch size (24 left ~50% of H100 80GB unused; 40 OOM'd, 32 splits the difference)
 T = 1024  # sequence length / time
 
 

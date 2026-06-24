@@ -320,9 +320,9 @@ if __name__ == "__main__":
 
     model = FGPT(FGPTConfig())
     model.to("cuda")
-    accumulation_steps = 20 # -> effective batch size of roughly 0.5m tokens (B=24, T=1024)
+    accumulation_steps = 15 # -> effective batch size of roughly 0.5m tokens (B=32, T=1024)
     current_step = 0
-    target_tokens = 40_000_000_000  # ~40B token training run, multi-day on this hardware
+    target_tokens = 50_000_000_000  # ~50B token training run, multi-day on this hardware
     max_steps = math.ceil(target_tokens / (B * T)) + 1
     start_lr_adamw = 6e-4
     start_lr_muon = 0.025
