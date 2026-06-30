@@ -16,7 +16,7 @@ class FGPTConfig:
         50304  # GPT-2's vocab size 50257 --> set to power of 2 for faster cuda
     )
     n_layer: int = 32
-    n_head: int = 8  # merged after exp-024: n_head=8 → 3.9780 (-0.062 vs 4.0400 baseline)
+    n_head: int = 16  # manual config: trying 16 heads instead of exp-024's 8
     n_embd: int = (
         1248  # embedding dimension -> number of features in each token embedding
     )
@@ -31,12 +31,9 @@ class FGPTConfig:
     rope_base: int = 50000
     # Grouped Query Attention: number of KV heads. Must divide n_head evenly.
     # Set equal to n_head for standard MHA. Set to 1 for MQA.
-    # Merged after exp-023: GQA n_kv_heads=8 → 4.0400 (-0.08 vs 4.1243 baseline).
-    # Merged after exp-024: n_kv_heads=4 (2:1 ratio with n_head=8) → 3.9780 (-0.062 vs 4.0400).
-    # exp-044 pushed this to 1 (MQA) for -0.047 more, but that's an extreme ratio;
-    # using 2 (4:1 ratio, same as Llama-3) keeps most of the win with a more
-    # standard GQA setting.
-    n_kv_heads: int = 2
+    # Manual config: n_head=16, n_kv_heads=4 keeps the 4:1 ratio (same as Llama-3)
+    # used in exp-024, but with more, narrower heads (head_dim=78 vs 156).
+    n_kv_heads: int = 4
 
 
 class CausalSelfAttention(nn.Module):
